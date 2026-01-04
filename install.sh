@@ -327,21 +327,14 @@ get_server_ip() {
         echo ""
         log_success "检测到公网IP: ${CYAN}$auto_ip${NC}"
         echo ""
-        read -p "$(echo -e ${YELLOW}是否使用此IP? [Y/n]:${NC} )" confirm < /dev/tty
+        # 自动使用检测到的IP，无需用户确认
+        SERVER_IP="$auto_ip"
+        log_success "已使用自动检测的IP: $SERVER_IP"
+        return
 
-        if [[ -z "$confirm" || "$confirm" =~ ^[Yy] ]]; then
-            SERVER_IP="$auto_ip"
-            log_success "已使用自动检测的IP: $SERVER_IP"
-            return
-        fi
-    else
-        log_warn "无法自动检测公网IP"
-    fi
 
-    # 手动输入IP
-    echo ""
-    log_info "请手动输入服务器公网IP地址"
-    while true; do
+
+
         read -p "$(echo -e ${CYAN}IP地址:${NC} )" SERVER_IP < /dev/tty
 
         if validate_ip "$SERVER_IP"; then
