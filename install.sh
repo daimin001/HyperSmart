@@ -796,9 +796,6 @@ show_completion_info() {
     echo -e "${BLUE}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
     echo ""
     echo -e "  🌐 访问地址:  ${CYAN}http://${SERVER_IP}:${APP_PORT}/${ADMIN_PREFIX}${NC}"
-    echo -e "  👤 管理员账号: ${CYAN}admin${NC}"
-    echo -e "  🔑 管理员密码: ${YELLOW}${ADMIN_PASSWORD}${NC}"
-    echo -e "  📱 2FA密钥:   ${YELLOW}${ADMIN_2FA_SECRET}${NC}"
     echo ""
     echo -e "  📁 安装目录:   ${GREEN}${INSTALL_DIR}${NC}"
     echo -e "  📄 配置文件:   ${GREEN}${INSTALL_DIR}/.env${NC}"
@@ -819,16 +816,12 @@ show_completion_info() {
     echo -e "  卸载系统:  ${GREEN}${INSTALL_DIR}/uninstall.sh${NC}"
     echo ""
 
-    # 显示2FA配置
-    install_qrencode &> /dev/null
-    show_2fa_qrcode "${ADMIN_2FA_SECRET}" "Admin"
-
     echo -e "${BLUE}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
     echo -e "${BLUE}  ⚠️  重要提示${NC}"
     echo -e "${BLUE}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
     echo ""
-    echo -e "  1️⃣  ${YELLOW}请立即保存管理员密码和2FA密钥${NC}"
-    echo -e "  2️⃣  首次登录后请修改默认密码"
+    echo -e "  1️⃣  ${YELLOW}首次访问需要注册管理员账号并绑定 Google Authenticator${NC}"
+    echo -e "  2️⃣  注册时请使用强密码"
     echo -e "  3️⃣  建议配置防火墙规则"
     echo -e "  4️⃣  配置文件包含敏感信息，请妥善保管"
     echo -e "  5️⃣  系统已配置为开机自动启动"
