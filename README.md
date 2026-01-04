@@ -8,6 +8,8 @@
 
 **专业的 Hyperliquid 到 Bybit 跟单系统**
 
+订阅 Hyperliquid 聪明钱地址交易信号，实时自动复制交易到 Bybit、Bitget、OKX、Binance
+
 [快速开始](#快速安装) | [功能特性](#功能特性) | [系统要求](#系统要求) | [文档](#使用文档)
 
 </div>
@@ -47,6 +49,7 @@ sudo ./install.sh
 - ✅ **数据持久化** - SQLite 数据库，数据安全可靠
 - ✅ **Docker 部署** - 一键部署，开箱即用
 - ✅ **自动更新** - 内置版本检查和自动更新机制
+- ✅ **多交易所支持** - Bybit、Bitget、OKX、Binance
 
 ## 📋 系统要求
 
@@ -186,7 +189,7 @@ sudo chmod 777 /opt/trading-system/sqlite/
 │                     ↓                    │
 │                 Sync Service             │
 │                     ↓                    │
-│                   Bybit                  │
+│          Bybit / Bitget / OKX / Binance │
 │                                          │
 │  Web UI  ←→  FastAPI  ←→  SQLite        │
 │                                          │
@@ -199,7 +202,7 @@ sudo chmod 777 /opt/trading-system/sqlite/
 2. **启用 TOTP** - 双因素认证增强安全性
 3. **定期备份** - 定期备份数据库和配置文件
 4. **防火墙配置** - 仅开放必要的端口
-5. **API 密钥安全** - 妥善保管 Bybit API 密钥
+5. **API 密钥安全** - 妥善保管交易所 API 密钥
 
 ## 📝 更新日志
 
