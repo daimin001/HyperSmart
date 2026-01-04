@@ -795,7 +795,7 @@ show_completion_info() {
     echo -e "${BLUE}  📋 系统信息${NC}"
     echo -e "${BLUE}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
     echo ""
-    echo -e "  🌐 访问地址:  ${CYAN}http://${SERVER_IP}:${APP_PORT}/${ADMIN_PREFIX}${NC}"
+    echo -e "  🌐 访问地址:  ${CYAN}http://${SERVER_IP}:${APP_PORT}/${NC}"
     echo ""
     echo -e "  📁 安装目录:   ${GREEN}${INSTALL_DIR}${NC}"
     echo -e "  📄 配置文件:   ${GREEN}${INSTALL_DIR}/.env${NC}"
@@ -829,6 +829,7 @@ show_completion_info() {
 
     echo -e "${GREEN}✅ 感谢使用！如有问题请查看文档或联系技术支持${NC}"
     echo ""
+    echo "http://${SERVER_IP}:${APP_PORT}/"
 }
 
 # ============================================================================
