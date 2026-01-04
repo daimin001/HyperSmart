@@ -523,7 +523,7 @@ start_container() {
     docker run -d \
         --name ${CONTAINER_NAME} \
         --restart always \
-        --health-cmd="curl -f http://localhost:${INTERNAL_PORT}/ || exit 1" \
+        --health-cmd="curl -f http://localhost:${INTERNAL_PORT}/health || exit 1" \
         --health-interval=30s \
         --health-timeout=10s \
         --health-retries=3 \
