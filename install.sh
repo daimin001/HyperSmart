@@ -331,12 +331,12 @@ get_server_ip() {
         SERVER_IP="$auto_ip"
         log_success "已使用自动检测的IP: $SERVER_IP"
         return
+    fi
 
-
-
-
+    # 如果自动检测失败，提示用户手动输入
+    log_warn "自动检测IP失败，请手动输入服务器IP地址"
+    while true; do
         read -p "$(echo -e ${CYAN}IP地址:${NC} )" SERVER_IP < /dev/tty
-
         if validate_ip "$SERVER_IP"; then
             log_success "IP地址验证通过: $SERVER_IP"
             break
