@@ -779,7 +779,6 @@ show_completion_info() {
     echo -e "  1️⃣  首次访问请注册账号并绑定 Google Authenticator"
     echo -e "  2️⃣  建议配置防火墙规则"
     echo -e "  3️⃣  配置文件包含敏感信息，请妥善保管"
-    echo -e "  4️⃣  系统已配置为开机自动启动"
     echo ""
 
     echo -e "${BLUE}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
