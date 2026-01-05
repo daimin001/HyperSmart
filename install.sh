@@ -861,11 +861,11 @@ main() {
     # 获取服务器IP
     get_server_ip
 
+    # 清理旧容器（必须在生成配置之前执行）
+    cleanup_old_container
+
     # 生成配置
     generate_config
-
-    # 清理旧容器
-    cleanup_old_container
 
     # 拉取镜像
     pull_docker_image
