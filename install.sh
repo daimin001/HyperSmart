@@ -258,21 +258,6 @@ generate_random_string() {
 }
 
 # ============================================================================
-# 生成Base32密钥（用于Google Authenticator）
-# ============================================================================
-generate_2fa_secret() {
-    local base32_chars="ABCDEFGHIJKLMNOPQRSTUVWXYZ234567"
-    local secret=""
-
-    # 生成32位Base32字符串
-    for i in $(seq 1 32); do
-        secret="${secret}${base32_chars:RANDOM%32:1}"
-    done
-
-    echo "$secret"
-}
-
-# ============================================================================
 # IP地址验证
 # ============================================================================
 validate_ip() {
@@ -349,70 +334,6 @@ get_server_ip() {
 }
 
 # ============================================================================
-# 安装二维码生成工具
-# ============================================================================
-install_qrencode() {
-    if command -v qrencode &> /dev/null; then
-        return 0
-    fi
-
-    log_info "安装二维码生成工具 qrencode..."
-
-    if command -v apt-get &> /dev/null; then
-        apt-get install -y qrencode &> /dev/null || true
-    elif command -v yum &> /dev/null; then
-        yum install -y qrencode &> /dev/null || true
-    elif command -v dnf &> /dev/null; then
-        dnf install -y qrencode &> /dev/null || true
-    fi
-
-    if command -v qrencode &> /dev/null; then
-        log_success "qrencode安装完成"
-        return 0
-    else
-        log_warn "qrencode安装失败（可选功能，不影响使用）"
-        return 1
-    fi
-}
-
-# ============================================================================
-# 显示2FA二维码
-# ============================================================================
-show_2fa_qrcode() {
-    local secret=$1
-    local app_name=$2
-
-    # Google Authenticator URI格式
-    local uri="otpauth://totp/${app_name}?secret=${secret}&issuer=TradingSystem"
-
-    echo ""
-    echo -e "${BLUE}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
-    echo -e "${BLUE}  双因素认证 (2FA) 配置${NC}"
-    echo -e "${BLUE}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
-    echo ""
-
-    if command -v qrencode &> /dev/null; then
-        echo -e "${GREEN}方法一: 扫描二维码${NC}"
-        echo ""
-        qrencode -t ANSI256 "${uri}"
-        echo ""
-        log_info "使用 Google Authenticator 扫描上方二维码"
-        echo ""
-    fi
-
-    echo -e "${GREEN}方法二: 手动输入密钥${NC}"
-    echo ""
-    echo "  1️⃣  打开 Google Authenticator 应用"
-    echo "  2️⃣  点击 '+' 按钮"
-    echo "  3️⃣  选择 '输入提供的密钥'"
-    echo "  4️⃣  账户名称: ${CYAN}${app_name}${NC}"
-    echo "  5️⃣  密钥: ${YELLOW}${secret}${NC}"
-    echo "  6️⃣  时间类型: 选择 '基于时间'"
-    echo "  7️⃣  点击 '添加' 完成设置"
-    echo ""
-}
-
-# ============================================================================
 # 生成配置文件
 # ============================================================================
 generate_config() {
@@ -426,7 +347,6 @@ generate_config() {
     log_info "生成安全密钥..."
     ADMIN_PREFIX=$(generate_random_string 10)
     ADMIN_PASSWORD=$(generate_random_string 16)
-    ADMIN_2FA_SECRET=$(generate_2fa_secret)
     JWT_SECRET=$(generate_random_string 64)
     DB_PASSWORD=$(generate_random_string 32)
 
@@ -452,7 +372,6 @@ ALLOWED_DOMAIN=${SERVER_IP}
 # 管理员配置
 ADMIN_PREFIX=${ADMIN_PREFIX}
 ADMIN_PASSWORD=${ADMIN_PASSWORD}
-ADMIN_2FA_SECRET=${ADMIN_2FA_SECRET}
 
 # JWT配置
 JWT_SECRET=${JWT_SECRET}
@@ -477,7 +396,7 @@ EOF
     log_success "配置文件已保存: ${INSTALL_DIR}/.env"
 
     # 导出环境变量供后续使用
-    export ADMIN_PREFIX ADMIN_PASSWORD ADMIN_2FA_SECRET SERVER_IP
+    export ADMIN_PREFIX ADMIN_PASSWORD SERVER_IP
 }
 
 # ============================================================================
@@ -854,7 +773,6 @@ show_completion_info() {
     echo -e "  🌐 访问地址:  ${CYAN}http://${SERVER_IP}:${APP_PORT}/${ADMIN_PREFIX}${NC}"
     echo -e "  👤 管理员账号: ${CYAN}admin${NC}"
     echo -e "  🔑 管理员密码: ${YELLOW}${ADMIN_PASSWORD}${NC}"
-    echo -e "  📱 2FA密钥:   ${YELLOW}${ADMIN_2FA_SECRET}${NC}"
     echo ""
     echo -e "  📁 安装目录:   ${GREEN}${INSTALL_DIR}${NC}"
     echo -e "  📄 配置文件:   ${GREEN}${INSTALL_DIR}/.env${NC}"
@@ -875,15 +793,11 @@ show_completion_info() {
     echo -e "  卸载系统:  ${GREEN}${INSTALL_DIR}/uninstall.sh${NC}"
     echo ""
 
-    # 显示2FA配置
-    install_qrencode &> /dev/null
-    show_2fa_qrcode "${ADMIN_2FA_SECRET}" "Admin"
-
     echo -e "${BLUE}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
     echo -e "${BLUE}  ⚠️  重要提示${NC}"
     echo -e "${BLUE}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
     echo ""
-    echo -e "  1️⃣  ${YELLOW}请立即保存管理员密码和2FA密钥${NC}"
+    echo -e "  1️⃣  ${YELLOW}请立即保存管理员密码${NC}"
     echo -e "  2️⃣  首次登录后请修改默认密码"
     echo -e "  3️⃣  建议配置防火墙规则"
     echo -e "  4️⃣  配置文件包含敏感信息，请妥善保管"
