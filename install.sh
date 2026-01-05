@@ -14,7 +14,7 @@ APP_NAME="trading-system"
 CONTAINER_NAME="${APP_NAME}-app"
 INSTALL_DIR="/opt/${APP_NAME}"
 IMAGE_NAME="crpi-avgutp4svf3qvj1p.ap-northeast-1.personal.cr.aliyuncs.com/hyper-smart/hyper-smart"  # 修改为您的镜像地址
-IMAGE_TAG="2.2.8"
+IMAGE_TAG="latest"
 APP_PORT=8080
 INTERNAL_PORT=8000
 
