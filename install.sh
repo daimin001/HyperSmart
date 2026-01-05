@@ -326,14 +326,9 @@ get_server_ip() {
     if validate_ip "$auto_ip"; then
         echo ""
         log_success "检测到公网IP: ${CYAN}$auto_ip${NC}"
-        echo ""
-        read -p "$(echo -e ${YELLOW}是否使用此IP? [Y/n]:${NC} )" confirm < /dev/tty
-
-        if [[ -z "$confirm" || "$confirm" =~ ^[Yy] ]]; then
-            SERVER_IP="$auto_ip"
-            log_success "已使用自动检测的IP: $SERVER_IP"
-            return
-        fi
+        SERVER_IP="$auto_ip"
+        log_success "已使用自动检测的IP: $SERVER_IP"
+        return
     else
         log_warn "无法自动检测公网IP"
     fi
