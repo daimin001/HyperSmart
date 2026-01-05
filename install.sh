@@ -14,7 +14,7 @@ APP_NAME="trading-system"
 CONTAINER_NAME="${APP_NAME}-app"
 INSTALL_DIR="/opt/${APP_NAME}"
 IMAGE_NAME="crpi-avgutp4svf3qvj1p.ap-northeast-1.personal.cr.aliyuncs.com/hyper-smart/hyper-smart"  # 修改为您的镜像地址
-IMAGE_TAG="latest"
+IMAGE_TAG="2.2.8"
 APP_PORT=8080
 INTERNAL_PORT=8000
 
@@ -327,16 +327,23 @@ get_server_ip() {
         echo ""
         log_success "检测到公网IP: ${CYAN}$auto_ip${NC}"
         echo ""
-        # 自动使用检测到的IP，无需用户确认
-        SERVER_IP="$auto_ip"
-        log_success "已使用自动检测的IP: $SERVER_IP"
-        return
+        read -p "$(echo -e ${YELLOW}是否使用此IP? [Y/n]:${NC} )" confirm < /dev/tty
+
+        if [[ -z "$confirm" || "$confirm" =~ ^[Yy] ]]; then
+            SERVER_IP="$auto_ip"
+            log_success "已使用自动检测的IP: $SERVER_IP"
+            return
+        fi
+    else
+        log_warn "无法自动检测公网IP"
     fi
 
-    # 如果自动检测失败，提示用户手动输入
-    log_warn "自动检测IP失败，请手动输入服务器IP地址"
+    # 手动输入IP
+    echo ""
+    log_info "请手动输入服务器公网IP地址"
     while true; do
         read -p "$(echo -e ${CYAN}IP地址:${NC} )" SERVER_IP < /dev/tty
+
         if validate_ip "$SERVER_IP"; then
             log_success "IP地址验证通过: $SERVER_IP"
             break
@@ -400,13 +407,13 @@ show_2fa_qrcode() {
 
     echo -e "${GREEN}方法二: 手动输入密钥${NC}"
     echo ""
-    echo "  1.  打开 Google Authenticator 应用"
-    echo "  2.  点击 '+' 按钮"
-    echo "  3.  选择 '输入提供的密钥'"
-    echo -e "  4.  账户名称: ${CYAN}${app_name}${NC}"
-    echo -e "  5.  密钥: ${YELLOW}${secret}${NC}"
-    echo "  6.  时间类型: 选择 '基于时间'"
-    echo "  7.  点击 '添加' 完成设置"
+    echo "  1️⃣  打开 Google Authenticator 应用"
+    echo "  2️⃣  点击 '+' 按钮"
+    echo "  3️⃣  选择 '输入提供的密钥'"
+    echo "  4️⃣  账户名称: ${CYAN}${app_name}${NC}"
+    echo "  5️⃣  密钥: ${YELLOW}${secret}${NC}"
+    echo "  6️⃣  时间类型: 选择 '基于时间'"
+    echo "  7️⃣  点击 '添加' 完成设置"
     echo ""
 }
 
@@ -523,7 +530,7 @@ start_container() {
     docker run -d \
         --name ${CONTAINER_NAME} \
         --restart always \
-        --health-cmd="curl -f http://localhost:${INTERNAL_PORT}/health || exit 1" \
+        --health-cmd="curl -f http://localhost:${INTERNAL_PORT}/ || exit 1" \
         --health-interval=30s \
         --health-timeout=10s \
         --health-retries=3 \
@@ -585,6 +592,60 @@ wait_for_service() {
     log_error "查看容器日志:"
     docker logs --tail 50 ${CONTAINER_NAME}
     exit 1
+}
+
+# ============================================================================
+# 安装宿主机监控系统
+# ============================================================================
+install_monitor_system() {
+    log_step "安装自动更新监控系统"
+
+    log_info "正在从容器安装监控系统..."
+
+    # 等待容器完全启动
+    sleep 3
+
+    # 检查容器是否运行
+    if ! docker ps | grep -q ${CONTAINER_NAME}; then
+        log_error "容器未运行，无法安装监控系统"
+        return 1
+    fi
+
+    # 从容器提取安装脚本
+    log_info "从容器提取监控安装脚本..."
+    if docker exec ${CONTAINER_NAME} cat /app/data/.install-monitor.sh > /tmp/install-monitor.sh 2>/dev/null; then
+        chmod +x /tmp/install-monitor.sh
+        log_success "监控安装脚本已准备好"
+    else
+        log_warn "无法从容器提取安装脚本，将在容器日志中查看手动安装命令"
+        log_info "请查看容器启动日志："
+        docker logs ${CONTAINER_NAME} | grep -A 5 "请在宿主机上执行以下命令" || true
+        return 1
+    fi
+
+    # 执行监控安装脚本
+    log_info "执行监控系统安装..."
+    if bash /tmp/install-monitor.sh "${INSTALL_DIR}" "${CONTAINER_NAME}" > /tmp/monitor-install.log 2>&1; then
+        log_success "监控系统安装成功"
+
+        # 显示监控服务状态
+        if systemctl is-active --quiet hyperbot-update-monitor; then
+            log_success "监控服务已启动并运行"
+        else
+            log_warn "监控服务未运行，请检查日志"
+        fi
+
+        # 清理临时文件
+        rm -f /tmp/install-monitor.sh /tmp/monitor-install.log
+
+        return 0
+    else
+        log_error "监控系统安装失败，查看日志："
+        cat /tmp/monitor-install.log
+        log_warn "您可以稍后手动安装监控系统："
+        log_warn "  docker exec ${CONTAINER_NAME} cat /app/data/.install-monitor.sh | sudo bash"
+        return 1
+    fi
 }
 
 # ============================================================================
@@ -795,7 +856,10 @@ show_completion_info() {
     echo -e "${BLUE}  📋 系统信息${NC}"
     echo -e "${BLUE}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
     echo ""
-    echo -e "  🌐 访问地址:  ${CYAN}http://${SERVER_IP}:${APP_PORT}/${NC}"
+    echo -e "  🌐 访问地址:  ${CYAN}http://${SERVER_IP}:${APP_PORT}/${ADMIN_PREFIX}${NC}"
+    echo -e "  👤 管理员账号: ${CYAN}admin${NC}"
+    echo -e "  🔑 管理员密码: ${YELLOW}${ADMIN_PASSWORD}${NC}"
+    echo -e "  📱 2FA密钥:   ${YELLOW}${ADMIN_2FA_SECRET}${NC}"
     echo ""
     echo -e "  📁 安装目录:   ${GREEN}${INSTALL_DIR}${NC}"
     echo -e "  📄 配置文件:   ${GREEN}${INSTALL_DIR}/.env${NC}"
@@ -816,20 +880,23 @@ show_completion_info() {
     echo -e "  卸载系统:  ${GREEN}${INSTALL_DIR}/uninstall.sh${NC}"
     echo ""
 
+    # 显示2FA配置
+    install_qrencode &> /dev/null
+    show_2fa_qrcode "${ADMIN_2FA_SECRET}" "Admin"
+
     echo -e "${BLUE}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
     echo -e "${BLUE}  ⚠️  重要提示${NC}"
     echo -e "${BLUE}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
     echo ""
-    echo -e "  1.  ${YELLOW}首次访问需要注册管理员账号并绑定 Google Authenticator${NC}"
-    echo -e "  2.  注册时请使用强密码"
-    echo -e "  3.  建议配置防火墙规则"
-    echo -e "  4.  配置文件包含敏感信息，请妥善保管"
-    echo -e "  5.  系统已配置为开机自动启动"
+    echo -e "  1️⃣  ${YELLOW}请立即保存管理员密码和2FA密钥${NC}"
+    echo -e "  2️⃣  首次登录后请修改默认密码"
+    echo -e "  3️⃣  建议配置防火墙规则"
+    echo -e "  4️⃣  配置文件包含敏感信息，请妥善保管"
+    echo -e "  5️⃣  系统已配置为开机自动启动"
     echo ""
 
     echo -e "${GREEN}✅ 感谢使用！如有问题请查看文档或联系技术支持${NC}"
     echo ""
-    echo "http://${SERVER_IP}:${APP_PORT}/"
 }
 
 # ============================================================================
@@ -897,6 +964,9 @@ main() {
 
     # 等待服务就绪
     wait_for_service
+
+    # 安装监控系统
+    install_monitor_system
 
     # 验证安装
     verify_installation
