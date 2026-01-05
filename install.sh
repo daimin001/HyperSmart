@@ -345,8 +345,6 @@ generate_config() {
 
     # 生成随机密钥
     log_info "生成安全密钥..."
-    ADMIN_PREFIX=$(generate_random_string 10)
-    ADMIN_PASSWORD=$(generate_random_string 16)
     JWT_SECRET=$(generate_random_string 64)
     DB_PASSWORD=$(generate_random_string 32)
 
@@ -368,10 +366,6 @@ APP_NAME=${APP_NAME}
 # 服务器配置
 SERVER_IP=${SERVER_IP}
 ALLOWED_DOMAIN=${SERVER_IP}
-
-# 管理员配置
-ADMIN_PREFIX=${ADMIN_PREFIX}
-ADMIN_PASSWORD=${ADMIN_PASSWORD}
 
 # JWT配置
 JWT_SECRET=${JWT_SECRET}
@@ -396,7 +390,7 @@ EOF
     log_success "配置文件已保存: ${INSTALL_DIR}/.env"
 
     # 导出环境变量供后续使用
-    export ADMIN_PREFIX ADMIN_PASSWORD SERVER_IP
+    export SERVER_IP
 }
 
 # ============================================================================
@@ -770,9 +764,7 @@ show_completion_info() {
     echo -e "${BLUE}  📋 系统信息${NC}"
     echo -e "${BLUE}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
     echo ""
-    echo -e "  🌐 访问地址:  ${CYAN}http://${SERVER_IP}:${APP_PORT}/${ADMIN_PREFIX}${NC}"
-    echo -e "  👤 管理员账号: ${CYAN}admin${NC}"
-    echo -e "  🔑 管理员密码: ${YELLOW}${ADMIN_PASSWORD}${NC}"
+    echo -e "  🌐 访问地址:  ${CYAN}http://${SERVER_IP}:${APP_PORT}${NC}"
     echo ""
     echo -e "  📁 安装目录:   ${GREEN}${INSTALL_DIR}${NC}"
     echo -e "  📄 配置文件:   ${GREEN}${INSTALL_DIR}/.env${NC}"
@@ -797,11 +789,19 @@ show_completion_info() {
     echo -e "${BLUE}  ⚠️  重要提示${NC}"
     echo -e "${BLUE}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
     echo ""
-    echo -e "  1️⃣  ${YELLOW}请立即保存管理员密码${NC}"
-    echo -e "  2️⃣  首次登录后请修改默认密码"
-    echo -e "  3️⃣  建议配置防火墙规则"
-    echo -e "  4️⃣  配置文件包含敏感信息，请妥善保管"
-    echo -e "  5️⃣  系统已配置为开机自动启动"
+    echo -e "  1️⃣  首次访问请注册账号并绑定 Google Authenticator"
+    echo -e "  2️⃣  建议配置防火墙规则"
+    echo -e "  3️⃣  配置文件包含敏感信息，请妥善保管"
+    echo -e "  4️⃣  系统已配置为开机自动启动"
+    echo ""
+
+    echo -e "${BLUE}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
+    echo -e "${BLUE}  🎁 永久使用权限${NC}"
+    echo -e "${BLUE}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
+    echo ""
+    echo -e "  ${YELLOW}本产品免费公测结束后，填写了 R39ZX1N 邀请码的用户可以永久使用。${NC}"
+    echo ""
+    echo -e "  📌 Bybit 邀请链接: ${CYAN}https://www.bybitglobal.com/invite?ref=R39ZX1N${NC}"
     echo ""
 
     echo -e "${GREEN}✅ 感谢使用！如有问题请查看文档或联系技术支持${NC}"
