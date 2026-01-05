@@ -397,8 +397,9 @@ EOF
 # 停止并删除旧容器
 # ============================================================================
 cleanup_old_container() {
-    log_info "清理旧容器..."
+    log_info "清理旧容器和数据..."
 
+    # 检查是否存在旧容器
     if docker ps -a | grep -q ${CONTAINER_NAME}; then
         log_info "发现旧容器，正在停止并删除..."
         docker stop ${CONTAINER_NAME} 2>/dev/null || true
@@ -406,6 +407,21 @@ cleanup_old_container() {
         log_success "旧容器已清理"
     else
         log_info "未发现旧容器"
+    fi
+
+    # 检查是否存在旧数据目录（自动删除，确保全新安装）
+    if [ -d "${INSTALL_DIR}" ] && [ "$(ls -A ${INSTALL_DIR} 2>/dev/null)" ]; then
+        echo ""
+        log_warn "检测到旧的安装数据: ${INSTALL_DIR}"
+        log_info "正在备份旧数据..."
+
+        # 备份旧数据
+        BACKUP_DIR="${INSTALL_DIR}.backup.$(date +%Y%m%d_%H%M%S)"
+        mv ${INSTALL_DIR} ${BACKUP_DIR}
+
+        log_success "旧数据已备份到: ${BACKUP_DIR}"
+        log_info "将进行全新安装，安装后需要重新注册账号"
+        echo ""
     fi
 }
 
