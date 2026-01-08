@@ -1096,21 +1096,28 @@ code {
 
     /* 导航栏 */
     .top-navbar {
-        flex-direction: column;
+        flex-wrap: wrap;
         gap: 0.67rem; /* 从1rem减小33% */
         padding: 0.67rem; /* 从1rem减小33% */
     }
 
     .nav-brand {
         font-size: 1.2rem; /* 减小33% */
+        flex: 0 0 auto; /* 不伸缩，保持在左侧 */
     }
 
     .nav-brand i {
         font-size: 1.2rem; /* 减小33% */
     }
 
+    .nav-user {
+        margin-left: auto; /* 推到右侧 */
+        gap: 0.67rem; /* 减小33% */
+    }
+
     .nav-menu {
         width: 100%;
+        order: 3; /* 确保菜单在第二行 */
         justify-content: flex-start;
         gap: 0.33rem; /* 减小33% */
     }
