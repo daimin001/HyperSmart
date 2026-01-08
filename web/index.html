@@ -1,0 +1,934 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Hyperliquid 跟单系统</title>
+    <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🚀</text></svg>">
+    <link rel="stylesheet" href="/static/styles.css?v=2.2.4">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+</head>
+<body>
+    <!-- 版本更新Toast提示 -->
+    <div id="update-notification" class="update-toast" style="display: none;">
+        <div class="toast-header">
+            <div class="toast-icon">
+                <i class="fas fa-rocket"></i>
+            </div>
+            <div class="toast-content">
+                <div class="toast-title">新版本可用</div>
+                <div class="toast-message">
+                    <span id="toast-version-info">v2.0.0</span> 已发布，点击查看详情
+                </div>
+            </div>
+            <button class="toast-close" onclick="hideUpdateToast(event)">
+                <i class="fas fa-times"></i>
+            </button>
+        </div>
+        <div class="toast-actions">
+            <button class="toast-btn-secondary" onclick="hideUpdateToast(event)">稍后</button>
+            <button class="toast-btn-primary" onclick="showUpdateModal()">
+                <i class="fas fa-download"></i> 立即更新
+            </button>
+        </div>
+    </div>
+
+    <!-- 更新详情弹窗 -->
+    <div id="update-modal" class="modal" style="display: none;">
+        <div class="modal-content update-modal">
+            <div class="modal-header">
+                <h3><i class="fas fa-sync-alt"></i> 系统更新</h3>
+                <button class="close-btn" onclick="closeUpdateModal()">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div class="version-comparison">
+                    <div class="version-item current">
+                        <label>当前版本</label>
+                        <span id="current-version">-</span>
+                    </div>
+                    <div class="version-arrow">
+                        <i class="fas fa-arrow-right"></i>
+                    </div>
+                    <div class="version-item latest">
+                        <label>最新版本</label>
+                        <span id="latest-version">-</span>
+                    </div>
+                </div>
+                <div class="update-info">
+                    <h4>更新内容</h4>
+                    <div id="release-notes" class="release-notes"></div>
+                    <p class="release-date">
+                        <i class="far fa-calendar"></i>
+                        发布时间：<span id="release-date">-</span>
+                    </p>
+                </div>
+                <div id="breaking-warning" class="breaking-warning" style="display: none;">
+                    <i class="fas fa-exclamation-triangle"></i>
+                    <span>此版本包含重要更改，建议更新前备份数据</span>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn-secondary" onclick="closeUpdateModal()">稍后更新</button>
+                <button class="btn-primary" onclick="confirmUpdate()">
+                    <i class="fas fa-download"></i> 立即更新
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 更新进度弹窗 -->
+    <div id="update-progress-modal" class="modal" style="display: none;">
+        <div class="modal-content update-progress">
+            <div class="modal-header">
+                <h3><i class="fas fa-cog fa-spin" id="update-header-icon"></i> <span id="update-header-text">正在更新系统</span></h3>
+            </div>
+            <div class="modal-body">
+                <div class="progress-container">
+                    <div class="progress-bar">
+                        <div class="progress-fill" id="update-progress-bar"></div>
+                    </div>
+                    <p id="update-status">正在准备更新...</p>
+                </div>
+                <div class="update-steps">
+                    <div class="step" id="step-download">
+                        <i class="fas fa-circle-notch"></i>
+                        <span>下载新版本</span>
+                    </div>
+                    <div class="step" id="step-stop">
+                        <i class="fas fa-circle-notch"></i>
+                        <span>停止当前服务</span>
+                    </div>
+                    <div class="step" id="step-start">
+                        <i class="fas fa-circle-notch"></i>
+                        <span>启动新版本</span>
+                    </div>
+                    <div class="step" id="step-verify">
+                        <i class="fas fa-circle-notch"></i>
+                        <span>验证服务状态</span>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer" id="update-complete-footer" style="display: none;">
+                <button class="btn-primary" onclick="completeUpdate()">
+                    <i class="fas fa-check-circle"></i> 完成
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 顶部导航栏 -->
+    <nav class="top-navbar">
+        <div class="nav-brand">
+            <i class="fas fa-rocket"></i>
+            <span>跟单系统</span>
+        </div>
+
+        <ul class="nav-menu">
+            <li class="nav-item active" data-page="accounts">
+                <i class="fas fa-users"></i>
+                <span>账户管理</span>
+            </li>
+            <li class="nav-item" data-page="trades">
+                <i class="fas fa-exchange-alt"></i>
+                <span>交易监控</span>
+            </li>
+            <li class="nav-item" data-page="positions">
+                <i class="fas fa-briefcase"></i>
+                <span>持仓管理</span>
+            </li>
+            <li class="nav-item" data-page="logs">
+                <i class="fas fa-file-alt"></i>
+                <span>系统日志</span>
+            </li>
+        </ul>
+
+        <div class="nav-user">
+            <div class="version-display" id="version-display" title="当前系统版本">
+                <i class="fas fa-code-branch"></i>
+                <span id="version-text">v-.-.-</span>
+            </div>
+            <a href="https://github.com/daimin001/HyperSmart/blob/main/README.md" target="_blank" class="github-link" title="查看项目文档">
+                <i class="fab fa-github"></i>
+            </a>
+            <div class="system-status">
+                <span class="status-indicator" id="system-status-indicator"></span>
+                <span id="system-status-text">连接中...</span>
+            </div>
+            <button class="btn-logout" onclick="logout()" title="登出系统">
+                <i class="fas fa-sign-out-alt"></i>
+            </button>
+        </div>
+    </nav>
+
+    <!-- 主要内容区域 -->
+    <main class="main-content">
+        <!-- 账户管理页面 -->
+        <div class="page active" id="accounts-page">
+            <div class="page-header">
+                <h1><i class="fas fa-users"></i> 账户管理</h1>
+                <div class="header-actions">
+                    <button class="btn-primary" id="add-account">
+                        <i class="fas fa-plus"></i> 添加账户
+                    </button>
+                    <button class="btn-secondary" id="refresh-accounts">
+                        <i class="fas fa-sync"></i> 刷新
+                    </button>
+                </div>
+            </div>
+
+            <div class="accounts-grid" id="accounts-list">
+                <p class="text-center text-muted">正在加载账户列表...</p>
+            </div>
+        </div>
+
+        <!-- 交易监控页面 -->
+        <div class="page" id="trades-page">
+            <div class="page-header">
+                <h1><i class="fas fa-exchange-alt"></i> 实时交易监控</h1>
+            </div>
+
+            <div class="filters-bar">
+                <div class="filter-group">
+                    <label>账户:</label>
+                    <select id="trade-account-filter">
+                        <option value="all">全部账户</option>
+                    </select>
+                </div>
+                <div class="filter-group">
+                    <label>币种:</label>
+                    <input type="text" id="trade-symbol-filter" placeholder="输入币种">
+                </div>
+                <div class="filter-group">
+                    <label>方向:</label>
+                    <select id="trade-side-filter">
+                        <option value="all">全部</option>
+                        <option value="Buy">买入</option>
+                        <option value="Sell">卖出</option>
+                    </select>
+                </div>
+                <div class="filter-group">
+                    <label>
+                        <input type="checkbox" id="trades-auto-refresh" checked>
+                        自动刷新(10秒)
+                    </label>
+                </div>
+                <div class="filter-group">
+                    <button class="btn-secondary btn-sm" id="refresh-trades">
+                        <i class="fas fa-sync"></i> 立即刷新
+                    </button>
+                </div>
+            </div>
+
+            <div class="trades-table">
+                <table class="data-table">
+                    <thead>
+                        <tr>
+                            <th>时间</th>
+                            <th>账户</th>
+                            <th>币种</th>
+                            <th>方向</th>
+                            <th>订单类型</th>
+                            <th>数量</th>
+                            <th>价格</th>
+                            <th>盈亏</th>
+                        </tr>
+                    </thead>
+                    <tbody id="trades-body">
+                        <tr>
+                            <td colspan="9" class="text-center text-muted">正在加载交易数据...</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+
+            <!-- 分页组件 -->
+            <div class="pagination-container">
+                <div class="pagination-info">
+                    显示第 <span id="trades-page-start">0</span> - <span id="trades-page-end">0</span> 条，共 <span id="trades-total">0</span> 条
+                </div>
+                <div class="pagination-controls">
+                    <button class="btn-pagination" id="trades-first-page" title="首页">
+                        <i class="fas fa-angle-double-left"></i>
+                    </button>
+                    <button class="btn-pagination" id="trades-prev-page" title="上一页">
+                        <i class="fas fa-angle-left"></i>
+                    </button>
+                    <span class="page-numbers" id="trades-page-numbers"></span>
+                    <button class="btn-pagination" id="trades-next-page" title="下一页">
+                        <i class="fas fa-angle-right"></i>
+                    </button>
+                    <button class="btn-pagination" id="trades-last-page" title="末页">
+                        <i class="fas fa-angle-double-right"></i>
+                    </button>
+                </div>
+                <div class="pagination-jumper">
+                    跳转到 <input type="number" id="trades-page-input" min="1" value="1"> 页
+                    <button class="btn-secondary btn-sm" id="trades-page-jump">跳转</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- 持仓管理页面 -->
+        <div class="page" id="positions-page">
+            <div class="page-header">
+                <h1><i class="fas fa-briefcase"></i> 持仓管理</h1>
+                <div class="header-actions">
+                    <button class="btn-secondary" id="refresh-positions">
+                        <i class="fas fa-sync"></i> 刷新
+                    </button>
+                </div>
+            </div>
+
+            <div class="filters-bar">
+                <div class="filter-group">
+                    <label>账户:</label>
+                    <select id="position-account-filter">
+                        <option value="all">全部账户</option>
+                    </select>
+                </div>
+            </div>
+
+            <div id="positions-container">
+                <p class="text-center text-muted">正在加载持仓数据...</p>
+            </div>
+        </div>
+
+        <!-- 系统日志页面 -->
+        <div class="page" id="logs-page">
+            <div class="page-header">
+                <h1><i class="fas fa-file-alt"></i> 系统日志</h1>
+                <div class="header-actions">
+                    <button class="btn-primary" id="export-logs-btn" onclick="exportLogs()">
+                        <i class="fas fa-download"></i> 导出近3天日志
+                    </button>
+                </div>
+            </div>
+
+            <div class="logs-container">
+                <div class="log-export-info" style="padding: 3rem; text-align: center;">
+                    <i class="fas fa-file-archive" style="font-size: 4rem; color: var(--primary-color); margin-bottom: 1.5rem;"></i>
+                    <h2 style="margin-bottom: 1rem; color: var(--text-color);">日志导出</h2>
+                    <p style="color: var(--text-muted); font-size: 1.1rem; line-height: 1.8; max-width: 600px; margin: 0 auto;">
+                        点击上方"导出近3天日志"按钮，系统将自动收集并打包近3天内的所有日志文件。
+                    </p>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <!-- 模态框 - 添加账户 -->
+    <div class="modal" id="add-account-modal">
+        <div class="modal-content large">
+            <div class="modal-header">
+                <h2><i class="fas fa-plus-circle"></i> 添加跟单账户</h2>
+                <button class="close-modal">&times;</button>
+            </div>
+            <div class="modal-body">
+                <form id="add-account-form">
+                    <div class="settings-section">
+                        <h3><i class="fas fa-info-circle"></i> 基本信息</h3>
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label>账户名称:</label>
+                                <input type="text" id="new-account-name" placeholder="例如: 我的账户1" required>
+                            </div>
+                            <div class="form-group">
+                                <label>运行模式:</label>
+                                <select id="new-bybit-mode">
+                                    <option value="DEMO">模拟盘 (DEMO) - 推荐测试</option>
+                                    <option value="LIVE">实盘 (LIVE)</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <div class="form-row">
+                            <div class="form-group full-width">
+                                <label>监控地址 (Hyperliquid):</label>
+                                <input type="text" id="new-hyperliquid-address" placeholder="0x..." required>
+                                <small>要跟单的 Hyperliquid 地址</small>
+                                <small style="color: #ff6b6b; font-weight: 500; margin-top: 5px; display: block;">⚠️ 禁止选择跟单TWAP订单类型的账户</small>
+                            </div>
+                        </div>
+
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label>Bybit API Key:</label>
+                                <input type="text" id="new-bybit-key" placeholder="输入API Key" required>
+                            </div>
+                            <div class="form-group">
+                                <label>Bybit API Secret:</label>
+                                <input type="password" id="new-bybit-secret" placeholder="输入API Secret" required>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="settings-section">
+                        <h3><i class="fas fa-filter"></i> 币种白名单</h3>
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label class="checkbox-label">
+                                    <input type="checkbox" id="new-enable-whitelist">
+                                    启用币种白名单
+                                </label>
+                            </div>
+                        </div>
+                        <div class="form-row">
+                            <div class="form-group full-width">
+                                <label>白名单币种 (逗号分隔):</label>
+                                <input type="text" id="new-symbol-whitelist" placeholder="BTC,ETH,SOL">
+                                <small>只跟单这些币种的交易</small>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="settings-section">
+                        <h3><i class="fas fa-shield-alt"></i> 保护列表</h3>
+                        <div class="form-row">
+                            <div class="form-group full-width">
+                                <label>保护币种 (逗号分隔):</label>
+                                <input type="text" id="new-protected-symbols" placeholder="BTC">
+                                <small>这些币种不会被自动平仓，用于保护您自己管理的仓位</small>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="settings-section">
+                        <h3><i class="fas fa-percentage"></i> 跟单模式</h3>
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label>跟单模式:</label>
+                                <select id="new-follow-mode">
+                                    <option value="ratio">比例跟单 - 按被跟单者仓位百分比开仓</option>
+                                    <option value="fixed">固定跟单 - 每次固定金额开仓</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="form-row">
+                            <div class="form-group" id="new-ratio-group">
+                                <label>比例跟单参数 (%):</label>
+                                <input type="number" id="new-base-margin" step="0.01" min="0.01" value="1" max="100">
+                                <small>被跟单者开100U，你开多少U？(1% = 1U, 10% = 10U)</small>
+                            </div>
+                            <div class="form-group" id="new-fixed-group" style="display: none;">
+                                <label>固定跟单参数 (USDT):</label>
+                                <input type="number" id="new-fixed-amount" step="1" min="1" value="50">
+                                <small>不管被跟单者开多少，每次都开这个金额</small>
+                            </div>
+                        </div>
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label>最小跟单金额 (USDT):</label>
+                                <input type="number" id="new-min-copy-value" step="1" min="1" value="10">
+                                <small>低于此金额的订单将被跳过或强制使用此金额</small>
+                            </div>
+                            <div class="form-group" id="new-force-min-amount-group">
+                                <label class="checkbox-label">
+                                    <input type="checkbox" id="new-force-min-amount">
+                                    强制跟单最小金额
+                                </label>
+                                <small>勾选后，当跟单金额小于最小金额时，强制以最小金额下单（仅比例跟单模式有效）</small>
+                            </div>
+                        </div>
+                        <div class="form-row">
+                            <div class="form-group full-width">
+                                <label class="checkbox-label">
+                                    <input type="checkbox" id="new-copy-existing-positions">
+                                    启动跟单时，立即复制交易员当前持仓
+                                </label>
+                                <small>勾选后，启动跟单会按照跟单比例立即复制被监控地址的所有现有持仓</small>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="settings-section">
+                        <h3><i class="fas fa-bell"></i> 飞书通知</h3>
+                        <div class="form-row">
+                            <div class="form-group full-width">
+                                <label class="checkbox-label">
+                                    <input type="checkbox" id="new-enable-feishu-notification">
+                                    启用跟单情况监控（发送飞书）
+                                </label>
+                                <small>勾选后，跟单成功/失败/异常等情况会发送到飞书群</small>
+                            </div>
+                        </div>
+                        <div class="form-row" id="new-feishu-webhook-row" style="display: none;">
+                            <div class="form-group full-width">
+                                <label>飞书Webhook URL:</label>
+                                <input type="text" id="new-feishu-webhook" placeholder="https://open.feishu.cn/open-apis/bot/v2/hook/...">
+                                <small>在飞书群中添加自定义机器人获取Webhook地址</small>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="modal-actions">
+                        <button type="button" class="btn-secondary cancel-modal">取消</button>
+                        <button type="submit" class="btn-primary">
+                            <i class="fas fa-plus"></i> 添加账户
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- 模态框 - 账户详情 -->
+    <div class="modal" id="account-detail-modal">
+        <div class="modal-content large">
+            <div class="modal-header">
+                <h2>账户详情</h2>
+                <button class="close-modal">&times;</button>
+            </div>
+            <div class="modal-body" id="account-detail-content">
+                <!-- 内容将动态生成 -->
+            </div>
+        </div>
+    </div>
+
+    <!-- 模态框 - 跟单设置 -->
+    <div class="modal" id="account-settings-modal">
+        <div class="modal-content large">
+            <div class="modal-header">
+                <h2><i class="fas fa-cog"></i> 跟单设置</h2>
+                <button class="close-modal">&times;</button>
+            </div>
+            <div class="modal-body">
+                <form id="account-settings-form">
+                    <input type="hidden" id="settings-account-name">
+
+                    <div class="settings-section">
+                        <h3><i class="fas fa-info-circle"></i> 基本信息</h3>
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label>账户名称:</label>
+                                <input type="text" id="setting-account-name" readonly style="background-color: #f5f5f5; cursor: not-allowed; color: #666;">
+                                <small style="color: #999; font-style: italic;">账户名称创建后不可修改</small>
+                            </div>
+                            <div class="form-group">
+                                <label>运行模式:</label>
+                                <select id="setting-bybit-mode">
+                                    <option value="LIVE">实盘 (LIVE)</option>
+                                    <option value="DEMO">模拟 (DEMO)</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <div class="form-row">
+                            <div class="form-group full-width">
+                                <label>监控地址 (Hyperliquid):</label>
+                                <input type="text" id="setting-hyperliquid-address" placeholder="0x..." required>
+                            </div>
+                        </div>
+
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label>Bybit API Key:</label>
+                                <input type="text" id="setting-bybit-key" placeholder="输入API Key">
+                            </div>
+                            <div class="form-group">
+                                <label>Bybit API Secret:</label>
+                                <input type="password" id="setting-bybit-secret" placeholder="输入API Secret">
+                            </div>
+                        </div>
+
+                    </div>
+
+                    <div class="settings-section">
+                        <h3><i class="fas fa-filter"></i> 币种白名单</h3>
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label class="checkbox-label">
+                                    <input type="checkbox" id="setting-enable-whitelist">
+                                    启用币种白名单
+                                </label>
+                            </div>
+                        </div>
+                        <div class="form-row">
+                            <div class="form-group full-width">
+                                <label>白名单币种 (逗号分隔):</label>
+                                <input type="text" id="setting-symbol-whitelist" placeholder="BTC,ETH,SOL">
+                                <small>只跟单这些币种的交易</small>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="settings-section">
+                        <h3><i class="fas fa-shield-alt"></i> 保护列表</h3>
+                        <div class="form-row">
+                            <div class="form-group full-width">
+                                <label>保护币种 (逗号分隔):</label>
+                                <input type="text" id="setting-protected-symbols" placeholder="BTC">
+                                <small>这些币种不会被自动平仓，用于保护您自己管理的仓位</small>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="settings-section">
+                        <h3><i class="fas fa-percentage"></i> 跟单模式</h3>
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label>跟单模式:</label>
+                                <select id="setting-follow-mode">
+                                    <option value="ratio">比例跟单 - 按被跟单者仓位百分比开仓</option>
+                                    <option value="fixed">固定跟单 - 每次固定金额开仓</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="form-row">
+                            <div class="form-group" id="setting-ratio-group">
+                                <label>比例跟单参数 (%):</label>
+                                <input type="number" id="setting-base-margin" step="0.01" min="0.01" value="1" max="100">
+                                <small>被跟单者开100U，你开多少U？(1% = 1U, 10% = 10U)</small>
+                            </div>
+                            <div class="form-group" id="setting-fixed-group" style="display: none;">
+                                <label>固定跟单参数 (USDT):</label>
+                                <input type="number" id="setting-fixed-amount" step="1" min="1" value="50">
+                                <small>不管被跟单者开多少，每次都开这个金额</small>
+                            </div>
+                        </div>
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label>最小跟单金额 (USDT):</label>
+                                <input type="number" id="setting-min-copy-value" step="1" min="1" value="10">
+                                <small>低于此金额的订单将被跳过或强制使用此金额</small>
+                            </div>
+                            <div class="form-group" id="setting-force-min-amount-group">
+                                <label class="checkbox-label">
+                                    <input type="checkbox" id="setting-force-min-amount">
+                                    强制跟单最小金额
+                                </label>
+                                <small>勾选后，当跟单金额小于最小金额时，强制以最小金额下单（仅比例跟单模式有效）</small>
+                            </div>
+                        </div>
+                        <div class="form-row">
+                            <div class="form-group full-width">
+                                <label class="checkbox-label">
+                                    <input type="checkbox" id="setting-copy-existing-positions">
+                                    启动跟单时，立即复制交易员当前持仓
+                                </label>
+                                <small>勾选后，启动跟单会按照跟单比例立即复制被监控地址的所有现有持仓</small>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="settings-section">
+                        <h3><i class="fas fa-bell"></i> 飞书通知</h3>
+                        <div class="form-row">
+                            <div class="form-group full-width">
+                                <label class="checkbox-label">
+                                    <input type="checkbox" id="setting-enable-feishu-notification">
+                                    启用跟单情况监控（发送飞书）
+                                </label>
+                                <small>勾选后，跟单成功/失败/异常等情况会发送到飞书群</small>
+                            </div>
+                        </div>
+                        <div class="form-row" id="setting-feishu-webhook-row" style="display: none;">
+                            <div class="form-group full-width">
+                                <label>飞书Webhook URL:</label>
+                                <input type="text" id="setting-feishu-webhook" placeholder="https://open.feishu.cn/open-apis/bot/v2/hook/...">
+                                <small>在飞书群中添加自定义机器人获取Webhook地址</small>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="modal-actions">
+                        <button type="button" class="btn-secondary cancel-modal">取消</button>
+                        <button type="submit" class="btn-primary">
+                            <i class="fas fa-save"></i> 保存配置
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Toast 通知容器 -->
+    <div id="toast-container"></div>
+
+    <!-- 确认对话框 -->
+    <div id="confirm-dialog" class="confirm-overlay" style="display: none;">
+        <div class="confirm-box">
+            <div class="confirm-icon">
+                <i class="fas fa-question-circle"></i>
+            </div>
+            <div class="confirm-message"></div>
+            <div class="confirm-actions">
+                <button class="btn-secondary confirm-cancel">取消</button>
+                <button class="btn-primary confirm-ok">确定</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+    <!-- 辅助模块 - 按依赖顺序加载 -->
+    <script src="/static/constants.js?v=20251224-01"></script>
+    <script src="/static/utils.js?v=20251224-01"></script>
+    <script src="/static/api.js?v=20251224-01"></script>
+    <script src="/static/ui.js?v=20251224-01"></script>
+    <!-- 主应用 -->
+    <script src="/static/app.js?v=20251231-01"></script>
+    <!-- 认证模块 -->
+    <script src="/static/auth.js?v=20251227"></script>
+
+    <!-- 版本检查 -->
+    <script>
+        let updateInfo = null;
+
+        // 检查版本更新
+        async function checkForUpdates() {
+            try {
+                const response = await fetch('/api/version/check');
+                const data = await response.json();
+
+                // 更新版本号显示 - 显示当前运行版本
+                if (data.success && data.current_version_display) {
+                    const versionText = document.getElementById('version-text');
+                    if (versionText) {
+                        versionText.textContent = `v${data.current_version_display}`;
+                    }
+                }
+
+                if (data.success && data.update_available) {
+                    updateInfo = data;
+                    showUpdateBadge();
+                }
+            } catch (error) {
+                console.error('版本检查失败:', error);
+            }
+        }
+
+        // 显示更新Toast
+        function showUpdateBadge() {
+            const toast = document.getElementById('update-notification');
+            const versionInfo = document.getElementById('toast-version-info');
+
+            if (updateInfo && updateInfo.latest_version) {
+                versionInfo.textContent = `v${updateInfo.latest_version}`;
+            }
+
+            toast.style.display = 'flex';
+            // 触发滑入动画
+            setTimeout(() => {
+                toast.classList.add('toast-show');
+            }, 10);
+        }
+
+        // 隐藏更新Toast
+        function hideUpdateToast(event) {
+            if (event) {
+                event.stopPropagation();
+            }
+            const toast = document.getElementById('update-notification');
+            toast.classList.remove('toast-show');
+            setTimeout(() => {
+                toast.style.display = 'none';
+            }, 300);
+        }
+
+        // 显示更新弹窗
+        function showUpdateModal() {
+            if (!updateInfo) return;
+
+            document.getElementById('current-version').textContent = updateInfo.current_version;
+            document.getElementById('latest-version').textContent = updateInfo.latest_version;
+            document.getElementById('release-notes').innerHTML = updateInfo.release_notes.replace(/\n/g, '<br>');
+            document.getElementById('release-date').textContent = new Date(updateInfo.release_date).toLocaleString('zh-CN');
+
+            if (updateInfo.breaking_changes) {
+                document.getElementById('breaking-warning').style.display = 'flex';
+            }
+
+            document.getElementById('update-modal').style.display = 'flex';
+        }
+
+        // 关闭更新弹窗
+        function closeUpdateModal() {
+            document.getElementById('update-modal').style.display = 'none';
+        }
+
+        // 确认更新
+        async function confirmUpdate() {
+            if (!updateInfo || !updateInfo.image) {
+                alert('无法获取更新信息，请刷新页面后重试');
+                return;
+            }
+
+            const confirmMsg = `确定要立即更新系统吗？\n\n当前版本: ${updateInfo.current_version}\n目标版本: ${updateInfo.latest_version}\n\n更新过程中系统将会重启，大约需要1-2分钟。`;
+
+            if (!confirm(confirmMsg)) {
+                return;
+            }
+
+            closeUpdateModal();
+            document.getElementById('update-progress-modal').style.display = 'flex';
+
+            try {
+                // 调用更新API，传递目标版本和镜像
+                const response = await fetch('/api/system/update', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        version: updateInfo.latest_version,
+                        image: updateInfo.image
+                    })
+                });
+
+                const data = await response.json();
+
+                if (data.success) {
+                    updateProgress(25, `正在下载 v${updateInfo.latest_version}...`, 'download');
+
+                    // 轮询更新状态
+                    pollUpdateStatus();
+                } else {
+                    alert('更新失败: ' + (data.message || '未知错误'));
+                    document.getElementById('update-progress-modal').style.display = 'none';
+                }
+            } catch (error) {
+                alert('更新失败: ' + error.message);
+                document.getElementById('update-progress-modal').style.display = 'none';
+            }
+        }
+
+        // 轮询更新状态
+        async function pollUpdateStatus() {
+            let attempts = 0;
+            const maxAttempts = 120; // 最多等待120秒（Docker拉取镜像可能较慢）
+            let serviceOnline = false;
+            const targetVersion = updateInfo.latest_version;
+
+            const interval = setInterval(async () => {
+                attempts++;
+
+                try {
+                    // 先检查health接口
+                    const healthResponse = await fetch('/health');
+
+                    if (healthResponse.ok && !serviceOnline) {
+                        // 服务已恢复在线
+                        serviceOnline = true;
+                        updateProgress(85, '服务已启动，正在验证版本...', 'verify');
+                    }
+
+                    // 如果服务在线，检查版本号是否已更新
+                    if (serviceOnline) {
+                        try {
+                            const versionResponse = await fetch('/api/version/current');
+                            if (versionResponse.ok) {
+                                const versionData = await versionResponse.json();
+                                const currentVersion = versionData.version || versionData.current_version;
+
+                                if (currentVersion === targetVersion) {
+                                    // 版本号匹配，更新真正完成
+                                    updateProgress(100, '系统更新成功！页面将自动刷新。', 'verify');
+                                    clearInterval(interval);
+
+                                    // 显示完成按钮，并更新标题
+                                    setTimeout(() => {
+                                        document.getElementById('update-header-icon').className = 'fas fa-check-circle';
+                                        document.getElementById('update-header-text').textContent = '更新完成';
+                                        document.getElementById('update-complete-footer').style.display = 'flex';
+                                    }, 500);
+                                } else {
+                                    // 服务在线但版本号还没更新，继续等待
+                                    updateProgress(90, `等待容器更新完成 (${attempts}s)...`, 'verify');
+                                }
+                            }
+                        } catch (e) {
+                            // 版本接口可能还没准备好
+                            updateProgress(88, '等待服务就绪...', 'verify');
+                        }
+                    } else if (attempts < 20) {
+                        updateProgress(25, '触发更新请求...', 'download');
+                    } else if (attempts < 40) {
+                        updateProgress(50, '正在拉取新镜像...', 'download');
+                    } else if (attempts < 60) {
+                        updateProgress(65, '正在停止旧容器...', 'stop');
+                    } else if (attempts < 80) {
+                        updateProgress(75, '正在启动新容器...', 'start');
+                    } else {
+                        updateProgress(80, '等待服务启动...', 'start');
+                    }
+                } catch (error) {
+                    // 连接失败是正常的，说明服务正在重启
+                    if (attempts < 20) {
+                        updateProgress(25, '触发更新请求...', 'download');
+                    } else if (attempts < 40) {
+                        updateProgress(50, '正在拉取新镜像...', 'download');
+                    } else if (attempts < 60) {
+                        updateProgress(65, '正在停止旧容器...', 'stop');
+                    } else if (attempts < 80) {
+                        updateProgress(75, '正在启动新容器...', 'start');
+                    } else {
+                        updateProgress(80, '等待服务启动...', 'start');
+                    }
+                }
+
+                if (attempts >= maxAttempts) {
+                    clearInterval(interval);
+                    alert('更新超时。容器可能正在后台更新中，请稍后手动刷新页面查看。');
+                    document.getElementById('update-progress-modal').style.display = 'none';
+                }
+            }, 1000);
+        }
+
+        // 更新进度
+        function updateProgress(percent, status, step) {
+            const statusEl = document.getElementById('update-status');
+            document.getElementById('update-progress-bar').style.width = percent + '%';
+            statusEl.textContent = status;
+
+            // 如果是成功消息，添加红色样式
+            if (status.includes('系统更新成功')) {
+                statusEl.classList.add('success');
+            } else {
+                statusEl.classList.remove('success');
+            }
+
+            // 更新步骤状态
+            const steps = ['download', 'stop', 'start', 'verify'];
+            const currentStepIndex = steps.indexOf(step);
+
+            steps.forEach((s, index) => {
+                const stepEl = document.getElementById('step-' + s);
+                const icon = stepEl.querySelector('i');
+
+                if (index < currentStepIndex) {
+                    icon.className = 'fas fa-check-circle';
+                    stepEl.classList.add('completed');
+                } else if (index === currentStepIndex) {
+                    icon.className = 'fas fa-spinner fa-spin';
+                    stepEl.classList.add('active');
+                } else {
+                    icon.className = 'fas fa-circle-notch';
+                    stepEl.classList.remove('completed', 'active');
+                }
+            });
+        }
+
+        // 完成更新并刷新页面
+        function completeUpdate() {
+            document.getElementById('update-progress-modal').style.display = 'none';
+            window.location.reload();
+        }
+
+        // 启动时检查版本
+        setTimeout(checkForUpdates, 2000);
+        // 每小时检查一次
+        setInterval(checkForUpdates, 3600000);
+    </script>
+
+    <!-- Session检查 -->
+    <script>
+        // 页面加载时检查session状态
+        window.addEventListener('load', async () => {
+            try {
+                await checkSession();
+            } catch (error) {
+                console.error('Session检查失败:', error);
+            }
+        });
+    </script>
+</body>
+</html>
