@@ -1132,8 +1132,16 @@ code {
         font-size: 1rem; /* 减小33% */
     }
 
-    /* 移动端隐藏版本号和系统状态 */
-    .version-display,
+    /* 移动端显示版本号但隐藏系统状态 */
+    .version-display {
+        font-size: 0.8rem; /* 减小字体 */
+        gap: 0.27rem; /* 减小间距 */
+    }
+
+    .version-display i {
+        font-size: 0.8rem;
+    }
+
     .system-status {
         display: none !important;
     }
