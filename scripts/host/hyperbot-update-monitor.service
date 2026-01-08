@@ -1,0 +1,17 @@
+[Unit]
+Description=HyperBot Update Monitor Service
+After=docker.service
+Requires=docker.service
+
+[Service]
+Type=simple
+User=root
+WorkingDirectory=/opt/trading-system
+ExecStart=/usr/bin/bash /opt/trading-system/trigger-update-monitor.sh
+Restart=always
+RestartSec=10
+StandardOutput=append:/opt/trading-system/logs/monitor.log
+StandardError=append:/opt/trading-system/logs/monitor.log
+
+[Install]
+WantedBy=multi-user.target

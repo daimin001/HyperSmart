@@ -655,6 +655,62 @@ verify_installation() {
 }
 
 # ============================================================================
+# 设置日志清理定时任务
+# ============================================================================
+setup_log_cleanup_cron() {
+    log_step "配置日志自动清理任务"
+
+    # 创建日志清理脚本
+    log_info "创建日志清理脚本..."
+    cat > ${INSTALL_DIR}/cleanup_logs.sh <<'CLEANUP_SCRIPT'
+#!/bin/bash
+# 自动清理超过30天的日志文件
+
+INSTALL_DIR="/opt/trading-system"
+LOG_DIRS=("${INSTALL_DIR}/logs" "/root/.pm2/logs")
+DAYS_TO_KEEP=30
+
+find_and_delete() {
+    local log_dir="$1"
+    if [ -d "$log_dir" ]; then
+        echo "清理目录: $log_dir"
+        find "$log_dir" -name "*.log" -type f -mtime +${DAYS_TO_KEEP} -delete 2>/dev/null
+        find "$log_dir" -name "*.log.gz" -type f -mtime +${DAYS_TO_KEEP} -delete 2>/dev/null
+        find "$log_dir" -name "*.log.zip" -type f -mtime +${DAYS_TO_KEEP} -delete 2>/dev/null
+    fi
+}
+
+echo "$(date '+%Y-%m-%d %H:%M:%S') - 开始清理旧日志..."
+for dir in "${LOG_DIRS[@]}"; do
+    find_and_delete "$dir"
+done
+echo "$(date '+%Y-%m-%d %H:%M:%S') - 日志清理完成"
+CLEANUP_SCRIPT
+
+    chmod +x ${INSTALL_DIR}/cleanup_logs.sh
+    log_success "日志清理脚本已创建: ${INSTALL_DIR}/cleanup_logs.sh"
+
+    # 添加到crontab
+    log_info "配置定时任务..."
+
+    # 检查是否已存在该任务
+    if crontab -l 2>/dev/null | grep -q "${INSTALL_DIR}/cleanup_logs.sh"; then
+        log_info "日志清理任务已存在，跳过添加"
+    else
+        # 添加新的cron任务（每天凌晨3点执行）
+        (crontab -l 2>/dev/null; echo "0 3 * * * ${INSTALL_DIR}/cleanup_logs.sh >> ${INSTALL_DIR}/logs/cleanup.log 2>&1") | crontab -
+        log_success "日志清理定时任务已添加（每天凌晨3点执行）"
+    fi
+
+    # 验证cron任务
+    if crontab -l 2>/dev/null | grep -q "${INSTALL_DIR}/cleanup_logs.sh"; then
+        log_success "定时任务配置成功"
+    else
+        log_warn "定时任务配置可能失败，请手动检查"
+    fi
+}
+
+# ============================================================================
 # 创建管理脚本
 # ============================================================================
 create_management_scripts() {
@@ -884,6 +940,9 @@ main() {
 
     # 创建管理脚本
     create_management_scripts
+
+    # 设置日志清理定时任务
+    setup_log_cleanup_cron
 
     # 显示完成信息
     show_completion_info
