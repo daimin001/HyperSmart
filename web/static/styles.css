@@ -586,8 +586,8 @@ code {
 .accounts-status-banner {
     background: var(--card-bg);
     border-radius: 8px;
-    padding: 1rem 1.5rem;
-    margin-bottom: 1.5rem;
+    padding: 0.75rem 1.25rem; /* 减小padding使组件更紧凑 */
+    margin-bottom: 0.75rem; /* 从1.5rem减少到0.75rem */
     display: flex;
     align-items: center;
     gap: 1rem;
@@ -1189,6 +1189,29 @@ code {
         padding: 1rem 0.67rem; /* 减小33% */
         width: 100%;
         max-width: 100vw;
+    }
+
+    /* 账户状态横幅 */
+    .accounts-status-banner {
+        padding: 0.5rem 0.84rem; /* 减小33% */
+        margin-bottom: 0.5rem; /* 减小33% */
+        gap: 0.67rem; /* 减小33% */
+    }
+
+    .accounts-status-banner i {
+        font-size: 1rem; /* 减小33% */
+    }
+
+    .accounts-status-banner > span:first-of-type {
+        font-size: 0.73rem; /* 减小33% */
+    }
+
+    .accounts-status-banner strong {
+        font-size: 0.87rem; /* 减小33% */
+    }
+
+    .accounts-status-banner .status-hint {
+        font-size: 0.6rem; /* 减小33% */
     }
 
     /* 统计网格 */
