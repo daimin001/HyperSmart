@@ -1116,6 +1116,7 @@ code {
     }
 
     .nav-menu {
+        flex-basis: 100%; /* 强制占据整行 */
         width: 100%;
         order: 3; /* 确保菜单在第二行 */
         justify-content: flex-start;
