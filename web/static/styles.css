@@ -1100,6 +1100,12 @@ code {
         justify-content: flex-start;
     }
 
+    /* 移动端隐藏版本号和系统状态 */
+    .version-display,
+    .system-status {
+        display: none !important;
+    }
+
     .stats-grid {
         grid-template-columns: 1fr;
     }
