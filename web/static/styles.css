@@ -1089,15 +1089,39 @@ code {
 }
 
 @media (max-width: 768px) {
+    /* 全局缩小：字体、间距、组件尺寸减小33% */
+    html {
+        font-size: 14px; /* 从默认16px减小到14px */
+    }
+
+    /* 导航栏 */
     .top-navbar {
         flex-direction: column;
-        gap: 1rem;
-        padding: 1rem;
+        gap: 0.67rem; /* 从1rem减小33% */
+        padding: 0.67rem; /* 从1rem减小33% */
+    }
+
+    .nav-brand {
+        font-size: 1.2rem; /* 减小33% */
+    }
+
+    .nav-brand i {
+        font-size: 1.2rem; /* 减小33% */
     }
 
     .nav-menu {
         width: 100%;
         justify-content: flex-start;
+        gap: 0.33rem; /* 减小33% */
+    }
+
+    .nav-item {
+        padding: 0.5rem 0.67rem; /* 减小33% */
+        font-size: 0.87rem; /* 减小33% */
+    }
+
+    .nav-item i {
+        font-size: 1rem; /* 减小33% */
     }
 
     /* 移动端隐藏版本号和系统状态 */
@@ -1106,41 +1130,204 @@ code {
         display: none !important;
     }
 
-    .stats-grid {
-        grid-template-columns: 1fr;
+    /* GitHub链接和登出按钮 */
+    .github-link,
+    .btn-logout {
+        width: 32px; /* 从40px减小 */
+        height: 32px;
+        font-size: 1rem; /* 减小33% */
     }
 
-    .form-row {
-        grid-template-columns: 1fr;
-    }
-
-    .accounts-grid,
-    .positions-grid {
-        grid-template-columns: 1fr;
-    }
-
+    /* 页面头部 */
     .page-header {
         flex-direction: column;
         align-items: flex-start;
         width: 100%;
         max-width: 100%;
+        padding: 0.67rem 0; /* 减小33% */
+        gap: 0.67rem; /* 减小33% */
     }
 
+    .page-header h1 {
+        font-size: 1.33rem; /* 减小33% */
+    }
+
+    .page-header h1 i {
+        font-size: 1.2rem; /* 减小33% */
+    }
+
+    /* 按钮 */
+    .btn-primary,
+    .btn-secondary {
+        padding: 0.53rem 0.87rem; /* 减小33% */
+        font-size: 0.87rem; /* 减小33% */
+        gap: 0.33rem; /* 减小33% */
+    }
+
+    .header-actions {
+        gap: 0.53rem; /* 减小33% */
+    }
+
+    /* 主内容区 */
     .main-content {
-        padding: 1.5rem 1rem;
+        padding: 1rem 0.67rem; /* 减小33% */
         width: 100%;
         max-width: 100vw;
     }
 
+    /* 统计网格 */
+    .stats-grid {
+        grid-template-columns: 1fr;
+        gap: 0.67rem; /* 减小33% */
+    }
+
+    .stat-card {
+        padding: 0.87rem; /* 减小33% */
+    }
+
+    .stat-card h3 {
+        font-size: 0.8rem; /* 减小33% */
+    }
+
+    .stat-card p {
+        font-size: 1.33rem; /* 减小33% */
+    }
+
+    /* 表单 */
+    .form-row {
+        grid-template-columns: 1fr;
+        gap: 0.67rem; /* 减小33% */
+    }
+
+    .form-group {
+        margin-bottom: 0.87rem; /* 减小33% */
+    }
+
+    .form-group label {
+        font-size: 0.87rem; /* 减小33% */
+        margin-bottom: 0.33rem; /* 减小33% */
+    }
+
+    .form-group input,
+    .form-group select,
+    .form-group textarea {
+        padding: 0.53rem; /* 减小33% */
+        font-size: 0.87rem; /* 减小33% */
+    }
+
+    /* 账户和持仓网格 */
+    .accounts-grid,
+    .positions-grid {
+        grid-template-columns: 1fr;
+        gap: 0.87rem; /* 减小33% */
+    }
+
+    .account-card,
+    .position-card {
+        padding: 1rem; /* 减小33% */
+    }
+
+    .account-card h3,
+    .position-card h3 {
+        font-size: 1rem; /* 减小33% */
+    }
+
+    .account-card .status,
+    .position-card .status {
+        padding: 0.27rem 0.53rem; /* 减小33% */
+        font-size: 0.73rem; /* 减小33% */
+    }
+
+    /* 表格 */
     .trades-table {
         width: 100%;
         max-width: 100%;
     }
+
+    .data-table {
+        font-size: 0.8rem; /* 减小33% */
+    }
+
+    .data-table th,
+    .data-table td {
+        padding: 0.53rem 0.33rem; /* 减小33% */
+        font-size: 0.8rem; /* 减小33% */
+    }
+
+    .data-table th {
+        font-size: 0.73rem; /* 减小33% */
+    }
+
+    /* 筛选栏 */
+    .filters-bar {
+        padding: 0.87rem; /* 减小33% */
+        gap: 0.67rem; /* 减小33% */
+    }
+
+    .filter-group {
+        gap: 0.33rem; /* 减小33% */
+    }
+
+    .filter-group label {
+        font-size: 0.87rem; /* 减小33% */
+    }
+
+    .filter-group select,
+    .filter-group input {
+        padding: 0.4rem 0.53rem; /* 减小33% */
+        font-size: 0.87rem; /* 减小33% */
+    }
+
+    /* 模态框 */
+    .modal-content {
+        width: 95%;
+        max-width: 95%;
+        margin: 0.67rem; /* 减小33% */
+        padding: 1rem; /* 减小33% */
+    }
+
+    .modal-header {
+        padding: 0.87rem 1rem; /* 减小33% */
+    }
+
+    .modal-header h3 {
+        font-size: 1.13rem; /* 减小33% */
+    }
+
+    .modal-body {
+        padding: 1rem; /* 减小33% */
+    }
+
+    .modal-footer {
+        padding: 0.87rem 1rem; /* 减小33% */
+        gap: 0.53rem; /* 减小33% */
+    }
+
+    /* Toast通知 */
+    .toast {
+        padding: 0.87rem; /* 减小33% */
+        font-size: 0.87rem; /* 减小33% */
+    }
+
+    /* 徽章和标签 */
+    .badge {
+        padding: 0.2rem 0.4rem; /* 减小33% */
+        font-size: 0.73rem; /* 减小33% */
+    }
+
+    /* 图标大小 */
+    .fa,
+    .fas,
+    .far,
+    .fab {
+        font-size: 0.93em; /* 图标相对减小 */
+    }
 }
 
 @media (max-width: 480px) {
+    /* 小屏幕进一步优化：保持33%缩小比例 */
     .page-header h1 {
-        font-size: 1.5rem;
+        font-size: 1.2rem; /* 保持缩小33% */
     }
 
     .page-header {
@@ -1152,6 +1339,7 @@ code {
     .filters-bar {
         flex-direction: column;
         align-items: stretch;
+        padding: 0.67rem; /* 缩小33% */
     }
 
     .filter-group {
@@ -1169,34 +1357,40 @@ code {
     .trades-table {
         margin-left: 0;
         margin-right: 0;
-        border-radius: 10px;
+        border-radius: 6px; /* 缩小33% */
         width: 100%;
         max-width: 100%;
     }
 
     .data-table th,
     .data-table td {
-        padding: 0.75rem 0.5rem;
-        font-size: 0.85rem;
+        padding: 0.5rem 0.33rem; /* 缩小33% */
+        font-size: 0.73rem; /* 缩小33% */
     }
 
     .main-content {
-        padding: 1rem;
+        padding: 0.67rem; /* 缩小33% */
         width: 100%;
         max-width: 100vw;
     }
 
     .top-navbar {
-        padding: 1rem;
+        padding: 0.67rem; /* 缩小33% */
     }
 
     .pagination-container {
-        padding: 1rem;
+        padding: 0.67rem; /* 缩小33% */
     }
 
     .pagination-info,
     .pagination-jumper {
-        font-size: 0.8rem;
+        font-size: 0.73rem; /* 缩小33% */
+    }
+
+    /* 分页按钮 */
+    .pagination-button {
+        padding: 0.33rem 0.53rem; /* 缩小33% */
+        font-size: 0.8rem; /* 缩小33% */
     }
 }
 
