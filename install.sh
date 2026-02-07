@@ -16,7 +16,7 @@ INSTALL_DIR="${1:-$DEFAULT_INSTALL_DIR}"
 IMAGE_REGISTRY="crpi-avgutp4svf3qvj1p.ap-northeast-1.personal.cr.aliyuncs.com"
 IMAGE_NAMESPACE="hyper-smart"
 IMAGE_REPO="hyper-smart"
-IMAGE_TAG="2.4.7"
+IMAGE_TAG="2.4.8"
 FULL_IMAGE="${IMAGE_REGISTRY}/${IMAGE_NAMESPACE}/${IMAGE_REPO}:${IMAGE_TAG}"
 APP_PORT=8080
 
