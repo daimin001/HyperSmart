@@ -395,6 +395,16 @@ main() {
     echo "$VERSION" > version.txt
     log_success "version.txt 已更新为: $VERSION"
 
+    # 3.1. 更新 install.sh 中的版本号
+    log_info "更新 install.sh 中的版本号..."
+    if [ -f "install.sh" ]; then
+        # 使用 sed 替换 IMAGE_TAG 的值
+        sed -i "s/^IMAGE_TAG=\".*\"/IMAGE_TAG=\"$VERSION\"/" install.sh
+        log_success "install.sh 已更新为: $VERSION"
+    else
+        log_warning "install.sh 文件不存在，跳过更新"
+    fi
+
     # 4. 运行构建前安全检查
     print_separator
     log_info "运行构建前安全检查..."
