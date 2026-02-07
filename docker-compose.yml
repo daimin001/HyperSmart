@@ -1,0 +1,128 @@
+services:
+  kafka:
+    image: apache/kafka:3.7.1
+    container_name: kafka
+    restart: always  # 改为 always，确保任何情况下都自动重启
+    environment:
+      - KAFKA_NODE_ID=1
+      - KAFKA_PROCESS_ROLES=broker,controller
+      - KAFKA_CONTROLLER_QUORUM_VOTERS=1@kafka:9093
+      - KAFKA_LISTENERS=PLAINTEXT://:9092,CONTROLLER://:9093
+      - KAFKA_ADVERTISED_LISTENERS=PLAINTEXT://kafka:9092
+      - KAFKA_LISTENER_SECURITY_PROTOCOL_MAP=CONTROLLER:PLAINTEXT,PLAINTEXT:PLAINTEXT
+      - KAFKA_CONTROLLER_LISTENER_NAMES=CONTROLLER
+      - KAFKA_LOG_DIRS=/tmp/kraft-combined-logs
+      - KAFKA_CLUSTER_ID=4L6g3nShT-eMCtK--X86sw
+      # Topic 配置优化
+      - KAFKA_AUTO_CREATE_TOPICS_ENABLE=true
+      - KAFKA_NUM_PARTITIONS=12  # 12分区支持更高并发
+      - KAFKA_DEFAULT_REPLICATION_FACTOR=1
+      - KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR=1
+      - KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR=1
+      - KAFKA_TRANSACTION_STATE_LOG_MIN_ISR=1
+      - KAFKA_MIN_INSYNC_REPLICAS=1
+      # 性能优化（低配版）
+      - KAFKA_COMPRESSION_TYPE=lz4  # LZ4压缩（低CPU开销）
+      - KAFKA_LOG_RETENTION_HOURS=6  # 保留6小时（降低磁盘占用）
+      - KAFKA_LOG_SEGMENT_BYTES=268435456  # 256MB per segment
+      - KAFKA_LOG_RETENTION_CHECK_INTERVAL_MS=300000  # 5分钟检查一次
+      # 批处理与网络优化（低延迟）
+      - KAFKA_SOCKET_SEND_BUFFER_BYTES=131072  # 128KB
+      - KAFKA_SOCKET_RECEIVE_BUFFER_BYTES=131072  # 128KB
+      - KAFKA_SOCKET_REQUEST_MAX_BYTES=104857600  # 100MB
+      - KAFKA_REPLICA_SOCKET_RECEIVE_BUFFER_BYTES=131072  # 128KB
+      # 刷盘优化（平衡性能与可靠性）
+      - KAFKA_LOG_FLUSH_INTERVAL_MESSAGES=10000  # 每1万条刷盘
+      - KAFKA_LOG_FLUSH_INTERVAL_MS=1000  # 或每1秒刷盘
+      # 消费者组优化
+      - KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS=0  # 立即rebalance
+      # 内存配置（低配版）
+      - KAFKA_HEAP_OPTS=-Xmx256m -Xms256m  # 降至256MB节省内存
+    volumes:
+      - ./kafka-data:/tmp/kraft-combined-logs
+    ports:
+      - "9092:9092"
+    healthcheck:
+      test: ["CMD", "bash", "-c", "/opt/kafka/bin/kafka-topics.sh --bootstrap-server localhost:9092 --list"]
+      interval: 15s
+      timeout: 12s
+      retries: 5
+      start_period: 30s
+    # 资源限制（关键）
+    deploy:
+      resources:
+        limits:
+          cpus: '0.8'
+          memory: 512M
+        reservations:
+          cpus: '0.3'
+          memory: 256M
+
+  hyperbot-web:
+    build: .
+    container_name: hyperbot-web
+    restart: always  # 改为 always，确保任何情况下都自动重启
+    extra_hosts:
+      - "host.docker.internal:host-gateway"  # Linux上访问宿主机
+    ports:
+      - "8080:8000"
+    volumes:
+      # 持久化数据目录
+      - ./logs:/app/logs
+      - ./data:/home/sqlite
+      - ./data:/app/data
+      - ./accounts_config.json:/app/accounts_config.json
+      # 源代码挂载（开发模式）
+      - ./src:/app/src
+      - ./api_server_simple.py:/app/api_server_simple.py
+      - ./run_unified_kafka.py:/app/run_unified_kafka.py
+      - ./api_helpers.py:/app/api_helpers.py
+      - ./auth.py:/app/auth.py
+      - ./auth_middleware.py:/app/auth_middleware.py
+      - ./license_validator.py:/app/license_validator.py
+      - ./license_middleware.py:/app/license_middleware.py
+      - ./scheduler.py:/app/scheduler.py
+      - ./web:/app/web
+    environment:
+      # 时区设置（重要：确保定时任务按正确时区执行）
+      - TZ=Asia/Shanghai
+      # Python不缓冲输出，便于查看日志
+      - PYTHONUNBUFFERED=1
+      # 自动启动账户监控服务
+      - ENABLE_AUTO_START_ACCOUNTS=true
+      # Kafka 实时通道
+      - KAFKA_ENABLED=true
+      - KAFKA_BOOTSTRAP_SERVERS=kafka:9092
+      - KAFKA_TRADES_TOPIC=hyperliquid.trades
+      - KAFKA_CONSUMER_GROUP=hyperliquid-bybit-sync-v2
+      - KAFKA_SECURITY_PROTOCOL=PLAINTEXT
+      # 性能优化配置
+      - KAFKA_NUM_WORKERS=5  # 5个消费者线程（并发处理）
+      - SQLITE_ASYNC_WRITE=false  # 关闭异步SQLite写入
+      # HTTP代理配置（用于绕过Bybit IP限制）
+      - BYBIT_PROXY_URL=${BYBIT_PROXY_URL:-}
+      - HTTP_PROXY=${BYBIT_PROXY_URL:-}
+      - HTTPS_PROXY=${BYBIT_PROXY_URL:-}
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "5m"
+        max-file: "2"
+    # 资源限制
+    deploy:
+      resources:
+        limits:
+          cpus: '1.2'
+          memory: 3G
+        reservations:
+          cpus: '0.5'
+          memory: 1G
+    depends_on:
+      kafka:
+        condition: service_healthy

@@ -1,0 +1,94 @@
+# ============================================================================
+# Docker 构建排除文件
+# ============================================================================
+# 防止敏感数据和开发文件被打包进Docker镜像
+
+# 敏感配置文件（必须排除）
+accounts_config.json
+.env
+.env.*
+!.env.example
+!accounts_config.json.template
+
+# 数据库文件（包含用户数据）
+data/
+data/*.db
+*.db
+*.db-wal
+*.db-shm
+*.db-journal
+
+# 日志文件
+logs/
+*.log
+nohup.out
+trading_bot.log
+api_server.log
+
+# 备份文件
+*.backup
+*.bak
+backup_*/
+
+# Git 相关
+.git/
+.gitignore
+.github/
+
+# 开发工具
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Python 相关
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+*.egg-info/
+dist/
+build/
+
+# 测试文件
+test/
+tests/
+*_test.py
+test_*.py
+
+# 临时文件
+tmp/
+temp/
+*.tmp
+
+# 发布相关
+releases/
+*.tar.gz
+*.zip
+
+# PM2 相关
+.pm2/
+
+# Kafka 数据目录
+kafka-data/
+
+# 系统文件
+.DS_Store
+Thumbs.db
+
+# 文档（如果不需要）
+*.md
+!README.md
+
+# 其他脚本（可选，根据需要调整）
+create_update_package.sh
+build-and-push.sh
+setup_github_repo.sh
+
+# 测试和分析脚本
+check_*.py
+analyze_*.py
+stress_test_*.sh
+monitor_*.sh

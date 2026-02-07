@@ -1,0 +1,28 @@
+{
+  "accounts": [
+    {
+      "account_name": "example-account",
+      "hyperliquid_address": "0x...",
+      "bybit_api_key": "your_api_key",
+      "bybit_api_secret": "your_api_secret",
+      "bybit_mode": "DEMO",
+      "enabled": true,
+
+      "follow_mode": "ratio",
+      "base_margin_amount": 1.0,
+      "fixed_amount": 50.0,
+      "min_copy_value": 10.0,
+      "max_leverage": 20,
+
+      "enable_symbol_whitelist": false,
+      "symbol_whitelist": [],
+
+      "enable_feishu_notification": false,
+      "feishu_webhook_url": "",
+
+      "save_hyperliquid_fills": true,
+
+      "startup_delay": 0.0
+    }
+  ]
+}

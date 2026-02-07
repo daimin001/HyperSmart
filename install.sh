@@ -1,26 +1,32 @@
 #!/bin/bash
-
-# ============================================================================
-# 跟单系统 Docker 一键安装脚本
-# 支持的系统: Ubuntu/Debian/CentOS/RHEL/Fedora
-# ============================================================================
+################################################################################
+# HyperBot 跟单系统一键安装脚本
+# 使用方法: curl -L https://raw.githubusercontent.com/daimin001/HyperSmart/main/install.sh | sudo bash
+# 或者: sudo bash install.sh
+################################################################################
 
 set -e
 
-# ============================================================================
+################################################################################
 # 配置变量
-# ============================================================================
-APP_NAME="trading-system"
-CONTAINER_NAME="${APP_NAME}-app"
-INSTALL_DIR="/opt/${APP_NAME}"
-IMAGE_NAME="crpi-avgutp4svf3qvj1p.ap-northeast-1.personal.cr.aliyuncs.com/hyper-smart/hyper-smart"  # 修改为您的镜像地址
-IMAGE_TAG="latest"
+################################################################################
+APP_NAME="hyperbot-bybit"
+DEFAULT_INSTALL_DIR="/opt/${APP_NAME}"
+INSTALL_DIR="${1:-$DEFAULT_INSTALL_DIR}"
+IMAGE_REGISTRY="crpi-avgutp4svf3qvj1p.ap-northeast-1.personal.cr.aliyuncs.com"
+IMAGE_NAMESPACE="hyper-smart"
+IMAGE_REPO="hyper-smart"
+IMAGE_TAG="2.4.7"
+FULL_IMAGE="${IMAGE_REGISTRY}/${IMAGE_NAMESPACE}/${IMAGE_REPO}:${IMAGE_TAG}"
 APP_PORT=8080
-INTERNAL_PORT=8000
 
-# ============================================================================
+# 阿里云镜像仓库凭证（用于一键部署）
+ALIYUN_USERNAME="无敌豆腐乳"
+ALIYUN_PASSWORD="Shuxuetiancai1."
+
+################################################################################
 # 颜色定义
-# ============================================================================
+################################################################################
 RED='\033[0;31m'
 GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
@@ -28,9 +34,9 @@ BLUE='\033[0;34m'
 CYAN='\033[0;36m'
 NC='\033[0m'
 
-# ============================================================================
+################################################################################
 # 日志函数
-# ============================================================================
+################################################################################
 log_info() {
     echo -e "${GREEN}[$(date +'%H:%M:%S')]${NC} ℹ️  $1"
 }
@@ -53,43 +59,46 @@ log_step() {
     echo -e "${BLUE}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}\n"
 }
 
-# ============================================================================
-# 检查root权限
-# ============================================================================
-check_root() {
-    if [ "$EUID" -ne 0 ]; then
-        log_error "此脚本需要root权限运行"
-        log_info "请使用: sudo bash install.sh"
-        exit 1
-    fi
-    log_success "Root权限检查通过"
+print_separator() {
+    echo -e "${CYAN}================================================================${NC}"
 }
 
-# ============================================================================
-# 检查CPU架构
-# ============================================================================
+################################################################################
+# 检查 root 权限
+################################################################################
+check_root() {
+    if [ "$EUID" -ne 0 ]; then
+        log_error "此脚本需要 root 权限运行"
+        log_info "请使用: curl -L https://raw.githubusercontent.com/daimin001/HyperSmart/main/install.sh | sudo bash"
+        exit 1
+    fi
+    log_success "Root 权限检查通过"
+}
+
+################################################################################
+# 检查 CPU 架构
+################################################################################
 check_architecture() {
-    log_info "检查CPU架构..."
+    log_info "检查 CPU 架构..."
 
     ARCH=$(uname -m)
     case $ARCH in
         x86_64|amd64)
-            log_success "CPU架构: $ARCH (支持)"
+            log_success "CPU 架构: $ARCH (支持)"
             ;;
         aarch64|arm64)
-            log_success "CPU架构: $ARCH (支持)"
+            log_success "CPU 架构: $ARCH (支持)"
             ;;
         *)
-            log_error "不支持的CPU架构: $ARCH"
-            log_error "此脚本仅支持 x86_64/amd64 和 aarch64/arm64 架构"
+            log_error "不支持的 CPU 架构: $ARCH"
             exit 1
             ;;
     esac
 }
 
-# ============================================================================
+################################################################################
 # 检查操作系统
-# ============================================================================
+################################################################################
 check_os() {
     log_info "检查操作系统..."
 
@@ -98,15 +107,13 @@ check_os() {
         OS=$NAME
         VERSION=$VERSION_ID
         OS_ID=$ID
-        log_success "操作系统: $OS $VERSION"
 
         case $OS_ID in
-            ubuntu|debian|centos|rhel|fedora|opensuse|sles|amzn|rocky|almalinux)
-                log_success "支持的Linux发行版"
+            ubuntu|debian|centos|rhel|fedora)
+                log_success "操作系统: $OS $VERSION (支持)"
                 ;;
             *)
-                log_warn "未经测试的Linux发行版: $OS_ID"
-                log_warn "脚本将继续运行，但可能遇到问题"
+                log_warn "未测试的操作系统: $OS"
                 ;;
         esac
     else
@@ -115,840 +122,615 @@ check_os() {
     fi
 }
 
-# ============================================================================
-# 检查Docker是否已安装
-# ============================================================================
-check_docker() {
-    log_info "检查Docker安装状态..."
+################################################################################
+# 检查并安装必要工具
+################################################################################
+install_required_tools() {
+    log_info "检查必要工具..."
 
+    # 检查 curl
+    if ! command -v curl &> /dev/null; then
+        log_info "安装 curl..."
+        case $OS_ID in
+            ubuntu|debian)
+                apt-get update && apt-get install -y curl
+                ;;
+            centos|rhel|fedora)
+                yum install -y curl
+                ;;
+        esac
+    fi
+
+    log_success "必要工具检查完成"
+}
+
+################################################################################
+# 检查 Docker
+################################################################################
+check_docker() {
     if command -v docker &> /dev/null; then
         DOCKER_VERSION=$(docker --version | awk '{print $3}' | sed 's/,//')
-        log_success "Docker已安装 (版本: $DOCKER_VERSION)"
+        log_success "Docker 已安装: $DOCKER_VERSION"
 
-        # 检查Docker服务状态
-        if systemctl is-active --quiet docker 2>/dev/null; then
-            log_success "Docker服务正在运行"
+        if systemctl is-active --quiet docker; then
+            log_success "Docker 服务运行正常"
         else
-            log_info "启动Docker服务..."
+            log_info "启动 Docker 服务..."
             systemctl start docker
             systemctl enable docker
-            log_success "Docker服务已启动"
+            log_success "Docker 服务已启动"
         fi
-
-        # 检查Docker权限
-        if docker info &> /dev/null; then
-            log_success "Docker权限正常"
-            return 0
-        else
-            log_error "Docker权限检查失败"
-            exit 1
-        fi
-    else
-        log_warn "Docker未安装"
-        return 1
-    fi
-}
-
-# ============================================================================
-# 安装Docker
-# ============================================================================
-install_docker() {
-    log_step "开始安装Docker"
-
-    if command -v apt-get &> /dev/null; then
-        # Ubuntu/Debian
-        log_info "检测到 Debian/Ubuntu 系统，使用 apt 安装..."
-
-        # 更新包索引
-        apt-get update -y
-
-        # 安装依赖
-        apt-get install -y \
-            apt-transport-https \
-            ca-certificates \
-            curl \
-            gnupg \
-            lsb-release
-
-        # 添加Docker官方GPG密钥
-        log_info "添加Docker官方GPG密钥..."
-        mkdir -p /etc/apt/keyrings
-        curl -fsSL https://download.docker.com/linux/${OS_ID}/gpg | \
-            gpg --dearmor -o /etc/apt/keyrings/docker.gpg
-
-        # 添加Docker APT仓库
-        log_info "添加Docker APT仓库..."
-        echo \
-            "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.gpg] \
-            https://download.docker.com/linux/${OS_ID} \
-            $(lsb_release -cs) stable" | \
-            tee /etc/apt/sources.list.d/docker.list > /dev/null
-
-        # 更新包索引
-        apt-get update -y
-
-        # 安装Docker
-        log_info "安装Docker Engine..."
-        apt-get install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
-
-    elif command -v yum &> /dev/null; then
-        # CentOS/RHEL/AlmaLinux/Rocky
-        log_info "检测到 RHEL/CentOS 系统，使用 yum 安装..."
-
-        # 安装依赖
-        yum install -y yum-utils
-
-        # 添加Docker仓库
-        log_info "添加Docker仓库..."
-        yum-config-manager --add-repo https://download.docker.com/linux/centos/docker-ce.repo
-
-        # 安装Docker
-        log_info "安装Docker Engine..."
-        yum install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
-
-    elif command -v dnf &> /dev/null; then
-        # Fedora
-        log_info "检测到 Fedora 系统，使用 dnf 安装..."
-
-        # 安装依赖
-        dnf -y install dnf-plugins-core
-
-        # 添加Docker仓库
-        log_info "添加Docker仓库..."
-        dnf config-manager --add-repo https://download.docker.com/linux/fedora/docker-ce.repo
-
-        # 安装Docker
-        log_info "安装Docker Engine..."
-        dnf install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
-
-    else
-        log_error "不支持的包管理器，请手动安装Docker"
-        exit 1
-    fi
-
-    # 启动Docker服务
-    log_info "启动Docker服务..."
-    systemctl start docker
-    systemctl enable docker
-    systemctl daemon-reload
-
-    # 验证安装
-    if docker --version &> /dev/null; then
-        DOCKER_VERSION=$(docker --version | awk '{print $3}' | sed 's/,//')
-        log_success "Docker安装成功 (版本: $DOCKER_VERSION)"
-    else
-        log_error "Docker安装失败"
-        exit 1
-    fi
-}
-
-# ============================================================================
-# 生成随机字符串
-# ============================================================================
-generate_random_string() {
-    local length=$1
-    local chars="ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789"
-    local result=""
-
-    for i in $(seq 1 $length); do
-        result="${result}${chars:RANDOM%${#chars}:1}"
-    done
-
-    echo "$result"
-}
-
-# ============================================================================
-# IP地址验证
-# ============================================================================
-validate_ip() {
-    local ip=$1
-
-    # 检查是否为空
-    if [ -z "$ip" ]; then
-        return 1
-    fi
-
-    # 检查基本格式：应该有3个点
-    if [ "$(echo "$ip" | tr -cd '.' | wc -c)" -ne 3 ]; then
-        return 1
-    fi
-
-    # 分割IP并验证每一段
-    IFS='.' read -r part1 part2 part3 part4 <<< "$ip"
-
-    # 检查每一段是否在0-255之间
-    for part in "$part1" "$part2" "$part3" "$part4"; do
-        # 检查是否为数字
-        if ! [[ "$part" =~ ^[0-9]+$ ]]; then
-            return 1
-        fi
-        # 检查范围0-255
-        if [ "$part" -lt 0 ] || [ "$part" -gt 255 ]; then
-            return 1
-        fi
-        # 检查前导零（除了"0"本身）
-        if [ "${#part}" -gt 1 ] && [ "${part:0:1}" = "0" ]; then
-            return 1
-        fi
-    done
-
-    return 0
-}
-
-# ============================================================================
-# 获取服务器IP地址
-# ============================================================================
-get_server_ip() {
-    log_step "配置服务器IP地址"
-
-    # 尝试自动获取公网IP
-    log_info "正在自动检测公网IP..."
-    auto_ip=$(curl -s --connect-timeout 5 https://api.ipify.org || \
-              curl -s --connect-timeout 5 https://ifconfig.me || \
-              curl -s --connect-timeout 5 https://icanhazip.com || \
-              true)
-
-    if validate_ip "$auto_ip"; then
-        echo ""
-        log_success "检测到公网IP: ${CYAN}$auto_ip${NC}"
-        SERVER_IP="$auto_ip"
-        log_success "已使用自动检测的IP: $SERVER_IP"
-        return
-    else
-        log_warn "无法自动检测公网IP"
-    fi
-
-    # 手动输入IP
-    echo ""
-    log_info "请手动输入服务器公网IP地址"
-    while true; do
-        read -p "$(echo -e ${CYAN}IP地址:${NC} )" SERVER_IP < /dev/tty
-
-        if validate_ip "$SERVER_IP"; then
-            log_success "IP地址验证通过: $SERVER_IP"
-            break
-        else
-            log_error "IP地址格式无效（示例: 192.168.1.1）"
-        fi
-    done
-}
-
-# ============================================================================
-# 生成配置文件
-# ============================================================================
-generate_config() {
-    log_step "生成系统配置"
-
-    # 创建安装目录
-    log_info "创建安装目录: $INSTALL_DIR"
-    mkdir -p ${INSTALL_DIR}/{data,config,logs,backups}
-
-    # 生成随机密钥
-    log_info "生成安全密钥..."
-    JWT_SECRET=$(generate_random_string 64)
-    DB_PASSWORD=$(generate_random_string 32)
-
-    log_success "安全密钥生成完成"
-
-    # 创建 .env 配置文件
-    log_info "创建配置文件..."
-    cat > ${INSTALL_DIR}/.env << EOF
-# ============================================================================
-# 跟单系统配置文件
-# 生成时间: $(date)
-# ============================================================================
-
-# 应用配置
-NODE_ENV=production
-PORT=${INTERNAL_PORT}
-APP_NAME=${APP_NAME}
-
-# 服务器配置
-SERVER_IP=${SERVER_IP}
-ALLOWED_DOMAIN=${SERVER_IP}
-
-# JWT配置
-JWT_SECRET=${JWT_SECRET}
-JWT_EXPIRES_IN=240h
-
-# 数据库配置
-DB_HOST=localhost
-DB_PORT=5432
-DB_NAME=${APP_NAME}
-DB_USER=${APP_NAME}
-DB_PASSWORD=${DB_PASSWORD}
-
-# 版本信息
-VERSION=1.0.0
-INSTALL_DATE=$(date +%Y-%m-%d)
-
-# 更新服务器
-UPDATE_CHECK_URL=https://your-update-server.com/api/version-check
-EOF
-
-    chmod 600 ${INSTALL_DIR}/.env
-    log_success "配置文件已保存: ${INSTALL_DIR}/.env"
-
-    # 导出环境变量供后续使用
-    export SERVER_IP
-}
-
-# ============================================================================
-# 停止并删除旧容器
-# ============================================================================
-cleanup_old_container() {
-    log_info "清理旧容器和数据..."
-
-    # 检查是否存在旧容器
-    if docker ps -a | grep -q ${CONTAINER_NAME}; then
-        log_info "发现旧容器，正在停止并删除..."
-        docker stop ${CONTAINER_NAME} 2>/dev/null || true
-        docker rm ${CONTAINER_NAME} 2>/dev/null || true
-        log_success "旧容器已清理"
-    else
-        log_info "未发现旧容器"
-    fi
-
-    # 检查是否存在旧数据目录（自动删除，确保全新安装）
-    if [ -d "${INSTALL_DIR}" ] && [ "$(ls -A ${INSTALL_DIR} 2>/dev/null)" ]; then
-        echo ""
-        log_warn "检测到旧的安装数据: ${INSTALL_DIR}"
-        log_info "正在备份旧数据..."
-
-        # 备份旧数据
-        BACKUP_DIR="${INSTALL_DIR}.backup.$(date +%Y%m%d_%H%M%S)"
-        mv ${INSTALL_DIR} ${BACKUP_DIR}
-
-        log_success "旧数据已备份到: ${BACKUP_DIR}"
-        log_info "将进行全新安装，安装后需要重新注册账号"
-        echo ""
-    fi
-}
-
-# ============================================================================
-# 拉取Docker镜像
-# ============================================================================
-pull_docker_image() {
-    log_step "拉取Docker镜像"
-
-    log_info "正在拉取镜像: ${IMAGE_NAME}:${IMAGE_TAG}"
-    log_warn "首次安装可能需要较长时间，请耐心等待..."
-
-    if docker pull ${IMAGE_NAME}:${IMAGE_TAG}; then
-        log_success "镜像拉取成功"
-    else
-        log_error "镜像拉取失败"
-        log_error "请检查网络连接和镜像地址"
-        exit 1
-    fi
-}
-
-# ============================================================================
-# 启动Docker容器
-# ============================================================================
-start_container() {
-    log_step "启动应用容器"
-
-    log_info "正在启动容器..."
-
-    docker run -d \
-        --name ${CONTAINER_NAME} \
-        --restart always \
-        --health-cmd="curl -f http://localhost:${INTERNAL_PORT}/health || exit 1" \
-        --health-interval=30s \
-        --health-timeout=10s \
-        --health-retries=3 \
-        --health-start-period=40s \
-        -p ${APP_PORT}:${INTERNAL_PORT} \
-        -v "${INSTALL_DIR}/.env:/app/.env:ro" \
-        -v "${INSTALL_DIR}/data:/app/data" \
-        -v "${INSTALL_DIR}/logs:/app/logs" \
-        -e TZ=Asia/Shanghai \
-        ${IMAGE_NAME}:${IMAGE_TAG}
-
-    if [ $? -eq 0 ]; then
-        log_success "容器启动成功"
-    else
-        log_error "容器启动失败"
-        exit 1
-    fi
-}
-
-# ============================================================================
-# 等待服务就绪
-# ============================================================================
-wait_for_service() {
-    log_step "等待服务就绪"
-
-    local max_attempts=30
-    local attempt=1
-
-    while [ $attempt -le $max_attempts ]; do
-        log_info "健康检查 (${attempt}/${max_attempts})..."
-
-        if docker ps | grep -q ${CONTAINER_NAME}; then
-            # 检查容器健康状态
-            health_status=$(docker inspect --format='{{.State.Health.Status}}' ${CONTAINER_NAME} 2>/dev/null || echo "none")
-
-            if [ "$health_status" = "healthy" ]; then
-                log_success "服务已就绪，健康状态: ${health_status}"
-                return 0
-            elif [ "$health_status" = "none" ]; then
-                # 如果没有健康检查，尝试直接访问
-                if curl -f -s http://localhost:${APP_PORT}/health &> /dev/null; then
-                    log_success "服务已就绪"
-                    return 0
-                fi
-            fi
-
-            log_info "当前状态: ${health_status}, 等待中..."
-        else
-            log_error "容器已停止"
-            docker logs --tail 50 ${CONTAINER_NAME}
-            exit 1
-        fi
-
-        sleep 2
-        ((attempt++))
-    done
-
-    log_error "服务启动超时"
-    log_error "查看容器日志:"
-    docker logs --tail 50 ${CONTAINER_NAME}
-    exit 1
-}
-
-# ============================================================================
-# 安装宿主机监控系统
-# ============================================================================
-install_monitor_system() {
-    log_step "安装自动更新监控系统"
-
-    log_info "正在从容器安装监控系统..."
-
-    # 等待容器完全启动
-    sleep 3
-
-    # 检查容器是否运行
-    if ! docker ps | grep -q ${CONTAINER_NAME}; then
-        log_error "容器未运行，无法安装监控系统"
-        return 1
-    fi
-
-    # 从容器提取安装脚本
-    log_info "从容器提取监控安装脚本..."
-    if docker exec ${CONTAINER_NAME} cat /app/data/.install-monitor.sh > /tmp/install-monitor.sh 2>/dev/null; then
-        chmod +x /tmp/install-monitor.sh
-        log_success "监控安装脚本已准备好"
-    else
-        log_warn "无法从容器提取安装脚本，将在容器日志中查看手动安装命令"
-        log_info "请查看容器启动日志："
-        docker logs ${CONTAINER_NAME} | grep -A 5 "请在宿主机上执行以下命令" || true
-        return 1
-    fi
-
-    # 执行监控安装脚本
-    log_info "执行监控系统安装..."
-    if bash /tmp/install-monitor.sh "${INSTALL_DIR}" "${CONTAINER_NAME}" > /tmp/monitor-install.log 2>&1; then
-        log_success "监控系统安装成功"
-
-        # 显示监控服务状态
-        if systemctl is-active --quiet hyperbot-update-monitor; then
-            log_success "监控服务已启动并运行"
-        else
-            log_warn "监控服务未运行，请检查日志"
-        fi
-
-        # 清理临时文件
-        rm -f /tmp/install-monitor.sh /tmp/monitor-install.log
-
         return 0
     else
-        log_error "监控系统安装失败，查看日志："
-        cat /tmp/monitor-install.log
-        log_warn "您可以稍后手动安装监控系统："
-        log_warn "  docker exec ${CONTAINER_NAME} cat /app/data/.install-monitor.sh | sudo bash"
         return 1
     fi
 }
 
-# ============================================================================
-# 验证安装配置
-# ============================================================================
-verify_installation() {
-    log_step "验证安装配置"
+################################################################################
+# 安装 Docker
+################################################################################
+install_docker() {
+    log_step "安装 Docker"
 
-    local error_count=0
+    case $OS_ID in
+        ubuntu|debian)
+            log_info "使用 APT 安装 Docker..."
+            apt-get update
+            apt-get install -y ca-certificates curl gnupg lsb-release
 
-    # 1. 检查Docker服务开机自启
-    log_info "检查Docker服务配置..."
-    if systemctl is-enabled docker &>/dev/null; then
-        log_success "Docker服务已设置为开机自启"
+            mkdir -p /etc/apt/keyrings
+            curl -fsSL https://download.docker.com/linux/$OS_ID/gpg | gpg --dearmor -o /etc/apt/keyrings/docker.gpg
+
+            echo \
+                "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.gpg] https://download.docker.com/linux/$OS_ID \
+                $(lsb_release -cs) stable" | tee /etc/apt/sources.list.d/docker.list > /dev/null
+
+            apt-get update
+            apt-get install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
+            ;;
+
+        centos|rhel|fedora)
+            log_info "使用 YUM 安装 Docker..."
+            yum install -y yum-utils
+            yum-config-manager --add-repo https://download.docker.com/linux/centos/docker-ce.repo
+            yum install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
+            ;;
+
+        *)
+            log_error "不支持的操作系统: $OS_ID"
+            exit 1
+            ;;
+    esac
+
+    systemctl start docker
+    systemctl enable docker
+
+    log_success "Docker 安装完成"
+}
+
+################################################################################
+# 创建安装目录
+################################################################################
+create_directories() {
+    log_step "创建安装目录"
+
+    log_info "创建目录: $INSTALL_DIR"
+    mkdir -p "$INSTALL_DIR"
+    mkdir -p "$INSTALL_DIR/data"
+    mkdir -p "$INSTALL_DIR/logs"
+    mkdir -p "$INSTALL_DIR/kafka-data"
+
+    log_success "目录创建完成"
+}
+
+################################################################################
+# 登录阿里云镜像仓库
+################################################################################
+aliyun_login() {
+    log_step "登录阿里云镜像仓库"
+
+    log_info "镜像仓库: $IMAGE_REGISTRY"
+
+    # 自动登录
+    echo "$ALIYUN_PASSWORD" | docker login --username "$ALIYUN_USERNAME" --password-stdin "$IMAGE_REGISTRY" > /dev/null 2>&1
+
+    if [ $? -eq 0 ]; then
+        log_success "镜像仓库登录成功"
     else
-        log_warn "Docker服务未设置为开机自启，正在修复..."
-        systemctl enable docker
-        ((error_count++))
-    fi
-
-    # 2. 检查容器运行状态
-    log_info "检查容器运行状态..."
-    if docker ps | grep -q ${CONTAINER_NAME}; then
-        log_success "容器正在运行"
-    else
-        log_error "容器未运行"
-        ((error_count++))
-    fi
-
-    # 3. 检查容器重启策略
-    log_info "检查容器重启策略..."
-    restart_policy=$(docker inspect --format='{{.HostConfig.RestartPolicy.Name}}' ${CONTAINER_NAME} 2>/dev/null)
-    if [ "$restart_policy" = "always" ]; then
-        log_success "容器重启策略: always"
-    else
-        log_error "容器重启策略异常: $restart_policy"
-        ((error_count++))
-    fi
-
-    # 4. 检查健康检查配置
-    log_info "检查健康检查配置..."
-    health_check=$(docker inspect --format='{{.Config.Healthcheck}}' ${CONTAINER_NAME} 2>/dev/null)
-    if [ -n "$health_check" ] && [ "$health_check" != "<nil>" ]; then
-        log_success "健康检查已配置"
-    else
-        log_warn "健康检查未配置"
-        ((error_count++))
-    fi
-
-    # 5. 检查配置文件
-    log_info "检查配置文件..."
-    if [ -f "${INSTALL_DIR}/.env" ]; then
-        log_success "配置文件存在: ${INSTALL_DIR}/.env"
-    else
-        log_error "配置文件缺失"
-        ((error_count++))
-    fi
-
-    # 6. 检查卷挂载
-    log_info "检查卷挂载..."
-    if docker inspect ${CONTAINER_NAME} --format='{{range .Mounts}}{{.Source}}:{{.Destination}}{{"\n"}}{{end}}' | grep -q ".env"; then
-        log_success "配置文件已正确挂载"
-    else
-        log_error "配置文件挂载异常"
-        ((error_count++))
-    fi
-
-    # 7. 检查端口映射
-    log_info "检查端口映射..."
-    if docker port ${CONTAINER_NAME} | grep -q "${APP_PORT}"; then
-        log_success "端口映射正确: ${APP_PORT}"
-    else
-        log_error "端口映射异常"
-        ((error_count++))
-    fi
-
-    echo ""
-    if [ $error_count -eq 0 ]; then
-        log_success "所有验证项通过"
-    else
-        log_warn "发现 $error_count 个问题，但安装已完成"
+        log_error "镜像仓库登录失败"
+        exit 1
     fi
 }
 
-# ============================================================================
-# 设置日志清理定时任务
-# ============================================================================
-setup_log_cleanup_cron() {
-    log_step "配置日志自动清理任务"
+################################################################################
+# 拉取镜像并提取配置模板
+################################################################################
+pull_and_extract_configs() {
+    log_step "拉取镜像和配置模板"
 
-    # 创建日志清理脚本
-    log_info "创建日志清理脚本..."
-    cat > ${INSTALL_DIR}/cleanup_logs.sh <<'CLEANUP_SCRIPT'
+    # 拉取镜像
+    log_info "拉取 Docker 镜像: $FULL_IMAGE"
+    docker pull "$FULL_IMAGE"
+
+    if [ $? -ne 0 ]; then
+        log_error "镜像拉取失败"
+        exit 1
+    fi
+    log_success "镜像拉取成功"
+
+    # 提取 .env.example
+    log_info "提取 .env.example 模板..."
+    docker run --rm --entrypoint="" "$FULL_IMAGE" cat /app/.env.example > "$INSTALL_DIR/.env.example"
+    log_success ".env.example 已提取"
+
+    # 提取 accounts_config.json.template
+    log_info "提取 accounts_config.json.template 模板..."
+    docker run --rm --entrypoint="" "$FULL_IMAGE" cat /app/accounts_config.json.template > "$INSTALL_DIR/accounts_config.json.template"
+    log_success "accounts_config.json.template 已提取"
+
+    # 提取 docker-compose.yml
+    log_info "提取 docker-compose.yml 模板..."
+    docker run --rm --entrypoint="" "$FULL_IMAGE" cat /app/docker-compose.yml > "$INSTALL_DIR/docker-compose.yml.template"
+    log_success "docker-compose.yml 已提取"
+}
+
+################################################################################
+# 创建配置文件
+################################################################################
+create_configs() {
+    log_step "创建配置文件"
+
+    # 创建 .env 文件（使用默认值）
+    if [ ! -f "$INSTALL_DIR/.env" ]; then
+        log_info "创建 .env 配置文件（使用默认值）..."
+        cp "$INSTALL_DIR/.env.example" "$INSTALL_DIR/.env"
+        log_success ".env 文件已创建"
+        log_warn "请编辑 $INSTALL_DIR/.env 配置您的参数"
+    else
+        log_info ".env 文件已存在，跳过创建"
+    fi
+
+    # 创建 accounts_config.json
+    if [ ! -f "$INSTALL_DIR/accounts_config.json" ]; then
+        log_info "创建 accounts_config.json 配置文件..."
+        cat > "$INSTALL_DIR/accounts_config.json" << 'EOF'
+{
+  "accounts": []
+}
+EOF
+        log_success "accounts_config.json 文件已创建"
+        log_warn "请编辑 $INSTALL_DIR/accounts_config.json 配置您的交易账户"
+    else
+        log_info "accounts_config.json 文件已存在，跳过创建"
+    fi
+
+    # 创建 docker-compose.yml（使用正确的镜像地址）
+    log_info "创建 docker-compose.yml..."
+    cat > "$INSTALL_DIR/docker-compose.yml" << EOF
+services:
+  kafka:
+    image: apache/kafka:3.7.1
+    container_name: ${APP_NAME}-kafka
+    restart: always
+    environment:
+      - KAFKA_NODE_ID=1
+      - KAFKA_PROCESS_ROLES=broker,controller
+      - KAFKA_CONTROLLER_QUORUM_VOTERS=1@kafka:9093
+      - KAFKA_LISTENERS=PLAINTEXT://:9092,CONTROLLER://:9093
+      - KAFKA_ADVERTISED_LISTENERS=PLAINTEXT://kafka:9092
+      - KAFKA_LISTENER_SECURITY_PROTOCOL_MAP=CONTROLLER:PLAINTEXT,PLAINTEXT:PLAINTEXT
+      - KAFKA_CONTROLLER_LISTENER_NAMES=CONTROLLER
+      - KAFKA_LOG_DIRS=/tmp/kraft-combined-logs
+      - KAFKA_CLUSTER_ID=4L6g3nShT-eMCtK--X86sw
+      - KAFKA_AUTO_CREATE_TOPICS_ENABLE=true
+      - KAFKA_NUM_PARTITIONS=12
+      - KAFKA_DEFAULT_REPLICATION_FACTOR=1
+      - KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR=1
+      - KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR=1
+      - KAFKA_TRANSACTION_STATE_LOG_MIN_ISR=1
+      - KAFKA_MIN_INSYNC_REPLICAS=1
+      - KAFKA_COMPRESSION_TYPE=lz4
+      - KAFKA_LOG_RETENTION_HOURS=6
+      - KAFKA_LOG_SEGMENT_BYTES=268435456
+      - KAFKA_LOG_RETENTION_CHECK_INTERVAL_MS=300000
+      - KAFKA_SOCKET_SEND_BUFFER_BYTES=131072
+      - KAFKA_SOCKET_RECEIVE_BUFFER_BYTES=131072
+      - KAFKA_SOCKET_REQUEST_MAX_BYTES=104857600
+      - KAFKA_REPLICA_SOCKET_RECEIVE_BUFFER_BYTES=131072
+      - KAFKA_LOG_FLUSH_INTERVAL_MESSAGES=10000
+      - KAFKA_LOG_FLUSH_INTERVAL_MS=1000
+      - KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS=0
+      - KAFKA_HEAP_OPTS=-Xmx256m -Xms256m
+    volumes:
+      - ./kafka-data:/tmp/kraft-combined-logs
+    ports:
+      - "9092:9092"
+    healthcheck:
+      test: ["CMD", "bash", "-c", "/opt/kafka/bin/kafka-topics.sh --bootstrap-server localhost:9092 --list"]
+      interval: 15s
+      timeout: 12s
+      retries: 5
+      start_period: 30s
+    deploy:
+      resources:
+        limits:
+          cpus: '0.8'
+          memory: 512M
+        reservations:
+          cpus: '0.3'
+          memory: 256M
+
+  hyperbot-web:
+    image: $FULL_IMAGE
+    container_name: ${APP_NAME}-web
+    restart: always
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    ports:
+      - "${APP_PORT}:8000"
+    volumes:
+      - ./logs:/app/logs
+      - ./data:/home/sqlite
+      - ./data:/app/data
+      - ./accounts_config.json:/app/accounts_config.json
+      - ./.env:/app/.env
+    environment:
+      - TZ=Asia/Shanghai
+      - PYTHONUNBUFFERED=1
+      - ENABLE_AUTO_START_ACCOUNTS=true
+      - KAFKA_ENABLED=true
+      - KAFKA_BOOTSTRAP_SERVERS=kafka:9092
+      - KAFKA_TRADES_TOPIC=hyperliquid.trades
+      - KAFKA_CONSUMER_GROUP=hyperliquid-bybit-sync-v2
+      - KAFKA_SECURITY_PROTOCOL=PLAINTEXT
+      - KAFKA_NUM_WORKERS=5
+      - SQLITE_ASYNC_WRITE=false
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "5m"
+        max-file: "2"
+    deploy:
+      resources:
+        limits:
+          cpus: '1.2'
+          memory: 3G
+        reservations:
+          cpus: '0.5'
+          memory: 1G
+    depends_on:
+      kafka:
+        condition: service_healthy
+EOF
+
+    log_success "docker-compose.yml 文件已创建"
+}
+
+################################################################################
+# 部署服务
+################################################################################
+deploy_services() {
+    log_step "部署服务"
+
+    cd "$INSTALL_DIR"
+
+    # 启动服务
+    log_info "启动 Docker Compose 服务..."
+    docker compose up -d
+
+    if [ $? -ne 0 ]; then
+        log_error "服务启动失败"
+        log_info "查看日志: docker compose logs"
+        exit 1
+    fi
+
+    log_success "服务启动成功"
+
+    # 等待服务就绪
+    log_info "等待服务启动..."
+    sleep 20
+}
+
+################################################################################
+# 安装宿主机监控服务
+################################################################################
+install_host_monitoring() {
+    log_step "安装宿主机监控服务"
+
+    # 从容器中提取宿主机监控安装脚本
+    log_info "提取宿主机监控安装脚本..."
+
+    # 检查容器内是否有安装脚本
+    if docker exec ${APP_NAME}-web test -f /app/data/.install-monitor.sh 2>/dev/null; then
+        docker exec ${APP_NAME}-web cat /app/data/.install-monitor.sh > "$INSTALL_DIR/install-monitor.sh"
+        chmod +x "$INSTALL_DIR/install-monitor.sh"
+
+        log_info "执行宿主机监控安装..."
+        bash "$INSTALL_DIR/install-monitor.sh" || log_warn "宿主机监控安装失败（非致命错误）"
+
+        log_success "宿主机监控安装完成"
+    else
+        log_warn "容器内未找到监控安装脚本，跳过宿主机监控安装"
+    fi
+}
+
+################################################################################
+# 安装容器监控服务
+################################################################################
+install_container_monitoring() {
+    log_step "安装容器监控服务"
+
+    # 创建监控脚本
+    log_info "创建容器监控脚本..."
+    cat > "$INSTALL_DIR/monitor_containers.sh" << 'MONITOR_SCRIPT'
 #!/bin/bash
-# 自动清理超过30天的日志文件
 
-INSTALL_DIR="/opt/trading-system"
-LOG_DIRS=("${INSTALL_DIR}/logs" "/root/.pm2/logs")
-DAYS_TO_KEEP=30
+INSTALL_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+LOG_FILE="$INSTALL_DIR/logs/container_monitor.log"
+APP_NAME="hyperbot-bybit"
+CONTAINERS=("${APP_NAME}-kafka" "${APP_NAME}-web")
 
-find_and_delete() {
-    local log_dir="$1"
-    if [ -d "$log_dir" ]; then
-        echo "清理目录: $log_dir"
-        find "$log_dir" -name "*.log" -type f -mtime +${DAYS_TO_KEEP} -delete 2>/dev/null
-        find "$log_dir" -name "*.log.gz" -type f -mtime +${DAYS_TO_KEEP} -delete 2>/dev/null
-        find "$log_dir" -name "*.log.zip" -type f -mtime +${DAYS_TO_KEEP} -delete 2>/dev/null
+log_message() {
+    echo "[$(date '+%Y-%m-%d %H:%M:%S')] $1" | tee -a "$LOG_FILE"
+}
+
+check_container_running() {
+    local container=$1
+    docker ps --filter "name=$container" --filter "status=running" --format "{{.Names}}" | grep -q "^${container}$"
+}
+
+check_container_health() {
+    local container=$1
+    local health=$(docker inspect --format='{{.State.Health.Status}}' "$container" 2>/dev/null)
+    [ "$health" = "healthy" ] || [ "$health" = "" ]
+}
+
+restart_container() {
+    local container=$1
+    log_message "⚠️  容器 $container 异常，尝试重启..."
+    cd "$INSTALL_DIR"
+    docker compose restart "$container"
+    if [ $? -eq 0 ]; then
+        log_message "✅ 容器 $container 重启成功"
+    else
+        log_message "❌ 容器 $container 重启失败"
     fi
 }
 
-echo "$(date '+%Y-%m-%d %H:%M:%S') - 开始清理旧日志..."
-for dir in "${LOG_DIRS[@]}"; do
-    find_and_delete "$dir"
+log_message "开始检查容器状态..."
+
+for container in "${CONTAINERS[@]}"; do
+    if ! check_container_running "${container}"; then
+        log_message "❌ 容器 $container 未运行"
+        restart_container "${container}"
+    elif ! check_container_health "${container}"; then
+        log_message "⚠️  容器 $container 健康检查失败"
+        restart_container "${container}"
+    else
+        log_message "✅ 容器 $container 运行正常"
+    fi
 done
-echo "$(date '+%Y-%m-%d %H:%M:%S') - 日志清理完成"
-CLEANUP_SCRIPT
 
-    chmod +x ${INSTALL_DIR}/cleanup_logs.sh
-    log_success "日志清理脚本已创建: ${INSTALL_DIR}/cleanup_logs.sh"
+log_message "检查完成"
+MONITOR_SCRIPT
 
-    # 添加到crontab
-    log_info "配置定时任务..."
+    chmod +x "$INSTALL_DIR/monitor_containers.sh"
+    log_success "监控脚本创建完成"
 
-    # 检查是否已存在该任务
-    if crontab -l 2>/dev/null | grep -q "${INSTALL_DIR}/cleanup_logs.sh"; then
-        log_info "日志清理任务已存在，跳过添加"
+    # 创建 systemd 服务
+    log_info "创建 systemd 服务..."
+    cat > /etc/systemd/system/hyperbot-monitor.service << EOF
+[Unit]
+Description=HyperBot Container Monitor
+After=docker.service
+Requires=docker.service
+
+[Service]
+Type=oneshot
+ExecStart=$INSTALL_DIR/monitor_containers.sh
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target
+EOF
+
+    # 创建 systemd 定时器
+    cat > /etc/systemd/system/hyperbot-monitor.timer << 'EOF'
+[Unit]
+Description=HyperBot Container Monitor Timer
+Requires=hyperbot-monitor.service
+
+[Timer]
+OnBootSec=2min
+OnUnitActiveSec=5min
+AccuracySec=1s
+
+[Install]
+WantedBy=timers.target
+EOF
+
+    # 重新加载并启动
+    systemctl daemon-reload
+    systemctl enable hyperbot-monitor.timer
+    systemctl start hyperbot-monitor.timer
+
+    log_success "容器监控服务已启动"
+}
+
+################################################################################
+# 验证安装
+################################################################################
+verify_installation() {
+    log_step "验证安装"
+
+    cd "$INSTALL_DIR"
+
+    # 检查容器状态
+    log_info "检查容器状态..."
+    sleep 10
+
+    KAFKA_STATUS=$(docker inspect -f '{{.State.Status}}' ${APP_NAME}-kafka 2>/dev/null)
+    WEB_STATUS=$(docker inspect -f '{{.State.Status}}' ${APP_NAME}-web 2>/dev/null)
+
+    if [ "$KAFKA_STATUS" = "running" ]; then
+        log_success "Kafka 容器运行正常"
     else
-        # 添加新的cron任务（每天凌晨3点执行）
-        (crontab -l 2>/dev/null; echo "0 3 * * * ${INSTALL_DIR}/cleanup_logs.sh >> ${INSTALL_DIR}/logs/cleanup.log 2>&1") | crontab -
-        log_success "日志清理定时任务已添加（每天凌晨3点执行）"
+        log_error "Kafka 容器状态异常: $KAFKA_STATUS"
     fi
 
-    # 验证cron任务
-    if crontab -l 2>/dev/null | grep -q "${INSTALL_DIR}/cleanup_logs.sh"; then
-        log_success "定时任务配置成功"
+    if [ "$WEB_STATUS" = "running" ]; then
+        log_success "HyperBot Web 容器运行正常"
     else
-        log_warn "定时任务配置可能失败，请手动检查"
+        log_error "HyperBot Web 容器状态异常: $WEB_STATUS"
     fi
+
+    # 测试 API
+    log_info "测试 API 健康检查..."
+    MAX_RETRIES=15
+    RETRY_COUNT=0
+
+    while [ $RETRY_COUNT -lt $MAX_RETRIES ]; do
+        if curl -f http://localhost:${APP_PORT}/health 2>/dev/null; then
+            log_success "API 健康检查通过"
+            break
+        else
+            RETRY_COUNT=$((RETRY_COUNT + 1))
+            if [ $RETRY_COUNT -lt $MAX_RETRIES ]; then
+                log_info "等待服务启动... ($RETRY_COUNT/$MAX_RETRIES)"
+                sleep 5
+            else
+                log_warn "API 健康检查超时（服务可能需要更长时间）"
+                log_info "您可以稍后使用以下命令检查: curl http://localhost:${APP_PORT}/health"
+            fi
+        fi
+    done
+
+    # 检查监控服务
+    log_info "检查监控服务..."
+    if systemctl is-active --quiet hyperbot-monitor.timer; then
+        log_success "容器监控服务运行正常"
+    else
+        log_warn "容器监控服务未运行"
+    fi
+
+    # 保存安装信息
+    cat > "$INSTALL_DIR/.hyperbot_config" << EOF
+# HyperBot 配置文件
+INSTALL_DIR="$INSTALL_DIR"
+INSTALL_DATE="$(date '+%Y-%m-%d %H:%M:%S')"
+VERSION="$IMAGE_TAG"
+IMAGE="$FULL_IMAGE"
+APP_PORT="$APP_PORT"
+EOF
+
+    log_success "安装验证完成"
 }
 
-# ============================================================================
-# 创建管理脚本
-# ============================================================================
-create_management_scripts() {
-    log_step "创建管理脚本"
+################################################################################
+# 显示安装摘要
+################################################################################
+show_summary() {
+    local SERVER_IP=$(hostname -I | awk '{print $1}')
 
-    # ========== start.sh ==========
-    cat > ${INSTALL_DIR}/start.sh <<'SCRIPT_END'
-#!/bin/bash
-cd $(dirname $0)
-
-echo "🚀 启动服务..."
-docker start trading-system-app
-
-sleep 3
-if docker ps | grep -q trading-system-app; then
-    echo "✅ 服务已启动"
-    docker ps | grep trading-system-app
-else
-    echo "❌ 服务启动失败"
-    docker logs --tail 20 trading-system-app
-    exit 1
-fi
-SCRIPT_END
-
-    # ========== stop.sh ==========
-    cat > ${INSTALL_DIR}/stop.sh <<'SCRIPT_END'
-#!/bin/bash
-cd $(dirname $0)
-
-echo "🛑 停止服务..."
-docker stop trading-system-app
-
-if [ $? -eq 0 ]; then
-    echo "✅ 服务已停止"
-else
-    echo "❌ 服务停止失败"
-    exit 1
-fi
-SCRIPT_END
-
-    # ========== restart.sh ==========
-    cat > ${INSTALL_DIR}/restart.sh <<'SCRIPT_END'
-#!/bin/bash
-cd $(dirname $0)
-
-echo "🔄 重启服务..."
-docker restart trading-system-app
-
-sleep 3
-if docker ps | grep -q trading-system-app; then
-    echo "✅ 服务已重启"
-    docker ps | grep trading-system-app
-else
-    echo "❌ 服务重启失败"
-    exit 1
-fi
-SCRIPT_END
-
-    # ========== status.sh ==========
-    cat > ${INSTALL_DIR}/status.sh <<'SCRIPT_END'
-#!/bin/bash
-cd $(dirname $0)
-
-echo "📊 服务状态"
-echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-docker ps -a | grep trading-system-app
-echo ""
-
-if docker ps | grep -q trading-system-app; then
-    echo "✅ 容器运行中"
-
-    # 显示健康状态
-    health_status=$(docker inspect --format='{{.State.Health.Status}}' trading-system-app 2>/dev/null || echo "none")
-    echo "🏥 健康状态: $health_status"
-
-    # 显示资源使用
+    print_separator
     echo ""
-    echo "📈 资源使用:"
-    docker stats --no-stream trading-system-app
-else
-    echo "❌ 容器未运行"
-fi
-SCRIPT_END
-
-    # ========== logs.sh ==========
-    cat > ${INSTALL_DIR}/logs.sh <<'SCRIPT_END'
-#!/bin/bash
-cd $(dirname $0)
-
-# 默认显示最后100行，可通过参数指定
-LINES=${1:-100}
-
-echo "📋 查看日志 (最后 ${LINES} 行)"
-echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-echo "提示: 按 Ctrl+C 退出实时日志"
-echo ""
-
-docker logs -f --tail ${LINES} trading-system-app
-SCRIPT_END
-
-    # 设置执行权限
-    chmod +x ${INSTALL_DIR}/*.sh
-
-    log_success "管理脚本创建完成"
-    log_info "脚本位置: ${INSTALL_DIR}/"
+    echo -e "${GREEN}🎉 HyperBot 跟单系统安装完成！${NC}"
+    echo ""
+    echo "安装信息:"
+    echo "  安装目录:     $INSTALL_DIR"
+    echo "  Docker镜像:   $FULL_IMAGE"
+    echo "  Web 端口:     $APP_PORT"
+    echo ""
+    echo "访问地址:"
+    echo "  Web 界面:     http://${SERVER_IP}:${APP_PORT}"
+    echo "  健康检查:     http://localhost:${APP_PORT}/health"
+    echo ""
+    echo "配置文件:"
+    echo "  环境变量:     $INSTALL_DIR/.env"
+    echo "  账户配置:     $INSTALL_DIR/accounts_config.json"
+    echo "  Compose:      $INSTALL_DIR/docker-compose.yml"
+    echo ""
+    echo -e "${YELLOW}⚠️  重要提示:${NC}"
+    echo "  1. 请编辑配置文件设置您的交易参数:"
+    echo "     - vi $INSTALL_DIR/.env"
+    echo "     - vi $INSTALL_DIR/accounts_config.json"
+    echo ""
+    echo "  2. 配置完成后重启服务:"
+    echo "     - cd $INSTALL_DIR && docker compose restart"
+    echo ""
+    echo "常用命令:"
+    echo "  查看日志:     cd $INSTALL_DIR && docker compose logs -f"
+    echo "  重启服务:     cd $INSTALL_DIR && docker compose restart"
+    echo "  停止服务:     cd $INSTALL_DIR && docker compose stop"
+    echo "  启动服务:     cd $INSTALL_DIR && docker compose start"
+    echo "  查看状态:     cd $INSTALL_DIR && docker compose ps"
+    echo ""
+    echo "监控服务:"
+    echo "  容器监控:     systemctl status hyperbot-monitor.timer"
+    echo "  监控日志:     tail -f $INSTALL_DIR/logs/container_monitor.log"
+    echo ""
+    print_separator
 }
 
-# ============================================================================
-# 显示安装完成信息
-# ============================================================================
-show_completion_info() {
-    clear
-
-    echo ""
-    echo -e "${GREEN}╔════════════════════════════════════════════════════════════════════════════════╗${NC}"
-    echo -e "${GREEN}║                                                                                ║${NC}"
-    echo -e "${GREEN}║                          🎉 安装完成！🎉                                         ║${NC}"
-    echo -e "${GREEN}║                                                                                ║${NC}"
-    echo -e "${GREEN}╚════════════════════════════════════════════════════════════════════════════════╝${NC}"
-    echo ""
-
-    echo -e "${BLUE}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
-    echo -e "${BLUE}  📋 系统信息${NC}"
-    echo -e "${BLUE}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
-    echo ""
-    echo -e "  🌐 访问地址:  ${CYAN}http://${SERVER_IP}:${APP_PORT}${NC}"
-    echo ""
-    echo -e "  📁 安装目录:   ${GREEN}${INSTALL_DIR}${NC}"
-    echo -e "  📄 配置文件:   ${GREEN}${INSTALL_DIR}/.env${NC}"
-    echo -e "  📊 数据目录:   ${GREEN}${INSTALL_DIR}/data${NC}"
-    echo -e "  📝 日志目录:   ${GREEN}${INSTALL_DIR}/logs${NC}"
-    echo ""
-
-    echo -e "${BLUE}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
-    echo -e "${BLUE}  ⚠️  重要提示${NC}"
-    echo -e "${BLUE}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
-    echo ""
-    echo -e "  1️⃣  首次访问请注册账号并绑定 Google Authenticator"
-    echo -e "  2️⃣  建议配置防火墙规则"
-    echo -e "  3️⃣  配置文件包含敏感信息，请妥善保管"
-    echo ""
-
-    echo -e "${BLUE}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
-    echo -e "${BLUE}  🎁 永久使用权限${NC}"
-    echo -e "${BLUE}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
-    echo ""
-    echo -e "  ${YELLOW}本产品免费公测结束后，填写了 R39ZX1N 邀请码的用户可以永久使用。${NC}"
-    echo ""
-    echo -e "  📌 Bybit 邀请链接: ${CYAN}https://www.bybitglobal.com/invite?ref=R39ZX1N${NC}"
-    echo ""
-
-    echo -e "${GREEN}✅ 感谢使用！如有问题请查看文档或联系技术支持${NC}"
-    echo ""
-}
-
-# ============================================================================
-# 错误处理
-# ============================================================================
-error_handler() {
-    log_error "安装过程中发生错误 (行号: $1)"
-    log_info "正在清理..."
-
-    # 清理可能创建的容器
-    docker stop ${CONTAINER_NAME} 2>/dev/null || true
-    docker rm ${CONTAINER_NAME} 2>/dev/null || true
-
-    log_error "安装失败，请检查错误信息后重试"
-    exit 1
-}
-
-trap 'error_handler $LINENO' ERR
-
-# ============================================================================
+################################################################################
 # 主函数
-# ============================================================================
+################################################################################
 main() {
-    # 显示欢迎信息
     clear
-    echo ""
-    echo -e "${CYAN}╔════════════════════════════════════════════════════════════════════════════════╗${NC}"
-    echo -e "${CYAN}║                                                                                ║${NC}"
-    echo -e "${CYAN}║                      🚀 跟单系统 Docker 一键安装脚本 🚀                          ║${NC}"
-    echo -e "${CYAN}║                                                                                ║${NC}"
-    echo -e "${CYAN}║                              版本: 1.0.0                                        ║${NC}"
-    echo -e "${CYAN}║                                                                                ║${NC}"
-    echo -e "${CYAN}╚════════════════════════════════════════════════════════════════════════════════╝${NC}"
-    echo ""
+    echo -e "${CYAN}"
+    echo "╔════════════════════════════════════════════════════════════════╗"
+    echo "║                                                                ║"
+    echo "║         HyperBot 跟单系统一键安装程序 v${IMAGE_TAG}              ║"
+    echo "║                                                                ║"
+    echo "╚════════════════════════════════════════════════════════════════╝"
+    echo -e "${NC}\n"
 
-    log_info "开始安装，请稍候..."
-    sleep 2
-
-    # 执行安装步骤
-    log_step "系统环境检查"
+    # 步骤 1: 系统检查
+    log_step "步骤 1/9: 系统检查"
     check_root
     check_architecture
     check_os
+    install_required_tools
 
-    # Docker检查和安装
-    log_step "Docker环境配置"
+    # 步骤 2: Docker 环境
+    log_step "步骤 2/9: Docker 环境检查"
     if ! check_docker; then
+        log_info "Docker 未安装，开始自动安装..."
         install_docker
     fi
 
-    # 获取服务器IP
-    get_server_ip
+    # 步骤 3: 创建目录
+    create_directories
 
-    # 清理旧容器（必须在生成配置之前执行）
-    cleanup_old_container
+    # 步骤 4: 登录镜像仓库
+    aliyun_login
 
-    # 生成配置
-    generate_config
+    # 步骤 5: 拉取镜像和配置
+    pull_and_extract_configs
 
-    # 拉取镜像
-    pull_docker_image
+    # 步骤 6: 创建配置文件
+    create_configs
 
-    # 启动容器
-    start_container
+    # 步骤 7: 部署服务
+    deploy_services
 
-    # 等待服务就绪
-    wait_for_service
+    # 步骤 8: 安装监控
+    install_container_monitoring
+    install_host_monitoring
 
-    # 安装监控系统
-    install_monitor_system
-
-    # 验证安装
+    # 步骤 9: 验证安装
     verify_installation
 
-    # 创建管理脚本
-    create_management_scripts
-
-    # 设置日志清理定时任务
-    setup_log_cleanup_cron
-
-    # 显示完成信息
-    show_completion_info
+    # 显示摘要
+    show_summary
 }
 
-# ============================================================================
 # 执行主函数
-# ============================================================================
 main "$@"
